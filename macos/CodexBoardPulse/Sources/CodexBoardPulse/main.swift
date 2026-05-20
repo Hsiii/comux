@@ -885,11 +885,6 @@ struct WindowCardView: View {
             .frame(height: compact ? 8 : 14)
             .opacity(window.available ? 1 : 0)
 
-            if !compact {
-                Text(formatCountdown(window.resetsAt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 }
