@@ -725,30 +725,123 @@ private func formatRelative(_ value: String) -> String {
     return formatter.localizedString(for: date, relativeTo: Date())
 }
 
-private func toneColor(_ status: String) -> Color {
-    switch status {
-    case "ahead":
-        return Color(red: 0.55, green: 0.96, blue: 0.69)
-    case "tight":
-        return Color(red: 1, green: 0.74, blue: 0.43)
-    case "over":
-        return Color(red: 1, green: 0.5, blue: 0.5)
-    default:
-        return Color(red: 0.4, green: 0.83, blue: 1)
+private func clampPercentage(_ value: Double) -> Double {
+    min(100, max(0, value))
+}
+
+private func remainingPercentage(for window: UsageWindow) -> Int {
+    Int(round(clampPercentage(100 - window.usedPercentage)))
+}
+
+private func tierLabel(for plan: String) -> String {
+    let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+    if normalized.contains("team") {
+        return "Team"
+    }
+
+    if normalized.contains("free") {
+        return "Free"
+    }
+
+    if normalized.contains("pro") {
+        return "Pro"
+    }
+
+    if normalized.hasPrefix("codex ") {
+        return String(plan.dropFirst(6))
+    }
+
+    return plan
+}
+
+private func windowDuration(for window: UsageWindow) -> TimeInterval? {
+    let label = window.label.lowercased()
+
+    if label.contains("week") {
+        return 7 * 24 * 60 * 60
+    }
+
+    if label.contains("5-hour") || label.contains("5h") {
+        return 5 * 60 * 60
+    }
+
+    return nil
+}
+
+private func pacePercentage(for window: UsageWindow) -> Double {
+    guard window.available,
+          let duration = windowDuration(for: window),
+          let resetDate = ISO8601DateFormatter().date(from: window.resetsAt)
+    else {
+        return 0
+    }
+
+    let startDate = resetDate.addingTimeInterval(-duration)
+    let elapsed = Date().timeIntervalSince(startDate)
+    return clampPercentage((elapsed / duration) * 100)
+}
+
+private func nextResetWindow(for account: AccountSnapshot) -> UsageWindow {
+    guard account.rollingWindow.available,
+          !account.rollingWindow.resetsAt.isEmpty,
+          let rollingReset = ISO8601DateFormatter().date(from: account.rollingWindow.resetsAt)
+    else {
+        return account.weeklyWindow
+    }
+
+    guard !account.weeklyWindow.resetsAt.isEmpty,
+          let weeklyReset = ISO8601DateFormatter().date(from: account.weeklyWindow.resetsAt)
+    else {
+        return account.rollingWindow
+    }
+
+    return rollingReset <= weeklyReset ? account.rollingWindow : account.weeklyWindow
+}
+
+final class NicknameStore: ObservableObject {
+    @Published private(set) var nicknames: [String: String]
+
+    private let defaultsKey = "codexboard.nicknames.v1"
+
+    init() {
+        self.nicknames = UserDefaults.standard.dictionary(forKey: self.defaultsKey) as? [String: String] ?? [:]
+    }
+
+    func displayName(for account: AccountSnapshot) -> String {
+        let nickname = self.nicknames[account.accountId]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return nickname.isEmpty ? account.label : nickname
+    }
+
+    func nickname(for account: AccountSnapshot) -> String {
+        self.nicknames[account.accountId] ?? ""
+    }
+
+    func saveNickname(_ value: String, for account: AccountSnapshot) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.isEmpty {
+            self.nicknames.removeValue(forKey: account.accountId)
+        } else {
+            self.nicknames[account.accountId] = trimmed
+        }
+
+        UserDefaults.standard.set(self.nicknames, forKey: self.defaultsKey)
     }
 }
 
 struct WindowCardView: View {
     let window: UsageWindow
+    let compact: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: compact ? 8 : 10) {
             HStack {
                 Text(window.label)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(window.available ? "\(Int(round(window.usedPercentage)))%" : "n/a")
+                Text(window.available ? "\(remainingPercentage(for: window))% left" : "n/a")
                     .font(.caption.weight(.semibold))
             }
 
@@ -757,102 +850,139 @@ struct WindowCardView: View {
                     RoundedRectangle(cornerRadius: 999)
                         .fill(Color.white.opacity(0.08))
                     RoundedRectangle(cornerRadius: 999)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.4, green: 0.83, blue: 1),
-                                    Color(red: 1, green: 0.88, blue: 0.41),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Color.white.opacity(0.12))
                         .frame(
-                            width: window.available
-                                ? geometry.size.width * CGFloat(window.usedPercentage / 100)
-                                : 0
+                            width: geometry.size.width * CGFloat(pacePercentage(for: window) / 100)
                         )
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.4, green: 0.49, blue: 0.92),
+                            Color(red: 0.46, green: 0.29, blue: 0.64),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 999)
+                                .frame(
+                                    width: geometry.size.width * CGFloat(clampPercentage(window.usedPercentage) / 100)
+                                )
+                        }
                 }
             }
-            .frame(height: 10)
+            .frame(height: compact ? 8 : 14)
+            .opacity(window.available ? 1 : 0)
 
-            if window.available {
-                Text("\(formatHours(window.usedMinutes)) / \(formatHours(window.limitMinutes))")
-                    .font(.system(.body, design: .rounded).weight(.semibold))
-                Text("\(window.remainingMinutes)m left")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Resets in \(formatCountdown(window.resetsAt))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Unavailable")
-                    .font(.system(.body, design: .rounded).weight(.semibold))
-                Text("This account did not expose this window.")
+            if !compact {
+                Text(formatCountdown(window.resetsAt))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+struct AccountEditorView: View {
+    let account: AccountSnapshot
+    let initialNickname: String
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftNickname: String
+
+    init(
+        account: AccountSnapshot,
+        initialNickname: String,
+        onSave: @escaping (String) -> Void
+    ) {
+        self.account = account
+        self.initialNickname = initialNickname
+        self.onSave = onSave
+        self._draftNickname = State(initialValue: initialNickname)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit nickname")
+                .font(.title3.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Email")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(account.email)
+                    .font(.body)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Nickname")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TextField("Nickname", text: self.$draftNickname)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    dismiss()
+                }
+
+                Button("Save") {
+                    onSave(self.draftNickname)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
     }
 }
 
 struct AccountCardView: View {
     let account: AccountSnapshot
+    let displayName: String
+    let onEdit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(account.plan.uppercased())
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.secondary)
-                    Text(account.label)
-                        .font(.title3.weight(.semibold))
-                    Text("\(account.email) / \(account.workspaceLabel)")
+                    HStack(spacing: 10) {
+                        Text(displayName)
+                            .font(.title3.weight(.semibold))
+                        Button("Edit") {
+                            onEdit()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    Text(tierLabel(for: account.plan))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
-
-                Label(account.source, systemImage: "circle.fill")
-                    .font(.caption)
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(Color(hex: account.color), .secondary)
             }
 
-            HStack(spacing: 12) {
-                WindowCardView(window: account.weeklyWindow)
-                WindowCardView(window: account.rollingWindow)
+            WindowCardView(window: account.weeklyWindow, compact: false)
+
+            if account.rollingWindow.available {
+                WindowCardView(window: account.rollingWindow, compact: true)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("PACE")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                Text(account.pace.summary)
-                    .font(.headline)
-                    .foregroundStyle(toneColor(account.pace.status))
-                Text(account.pace.detail)
+            HStack {
+                Text("Reset")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-
-            if let latest = account.history.last {
-                HStack {
-                    Text("Last sync \(formatRelative(account.lastSyncedAt))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(latest.note)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Spacer()
+                Text(formatCountdown(nextResetWindow(for: account).resetsAt))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(20)
@@ -861,72 +991,39 @@ struct AccountCardView: View {
     }
 }
 
-struct SummaryStripView: View {
-    let cache: CachePayload
+struct NextResetSectionView: View {
+    let accounts: [AccountSnapshot]
+    let nicknameStore: NicknameStore
 
     var body: some View {
-        let accounts = cache.accounts
-        let weeklyMinutes = accounts.reduce(0) { partialResult, account in
-            partialResult + (account.weeklyWindow.available ? account.weeklyWindow.usedMinutes : 0)
+        if let nextResetAccount = accounts
+            .map({ account in (account: account, window: nextResetWindow(for: account)) })
+            .filter({ !$0.window.resetsAt.isEmpty })
+            .sorted(by: { $0.window.resetsAt < $1.window.resetsAt })
+            .first {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("NEXT RESET")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Text(nicknameStore.displayName(for: nextResetAccount.account))
+                        .font(.title.weight(.bold))
+                    Spacer()
+                    Text(formatCountdown(nextResetAccount.window.resetsAt))
+                        .font(.title3.weight(.semibold))
+                }
+            }
+            .padding(20)
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 24))
         }
-        let rollingMinutes = accounts.reduce(0) { partialResult, account in
-            partialResult + (account.rollingWindow.available ? account.rollingWindow.usedMinutes : 0)
-        }
-        let nextReset = accounts
-            .filter { $0.rollingWindow.available }
-            .sorted { $0.rollingWindow.resetsAt < $1.rollingWindow.resetsAt }
-            .first
-
-        return HStack(spacing: 12) {
-            SummaryTileView(
-                title: "Tracked accounts",
-                value: "\(accounts.count)",
-                detail: "System account plus any extra cookie accounts."
-            )
-            SummaryTileView(
-                title: "Weekly burn",
-                value: formatHours(weeklyMinutes),
-                detail: "Combined across all visible accounts."
-            )
-            SummaryTileView(
-                title: "Rolling 5h",
-                value: formatHours(rollingMinutes),
-                detail: "Fast comparison of near-term pressure."
-            )
-            SummaryTileView(
-                title: "Next reset",
-                value: nextReset.map { formatCountdown($0.rollingWindow.resetsAt) } ?? "n/a",
-                detail: nextReset?.label ?? "No rolling window available."
-            )
-        }
-    }
-}
-
-struct SummaryTileView: View {
-    let title: String
-    let value: String
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.weight(.bold))
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
 
 struct DashboardView: View {
     @ObservedObject var coordinator: PulseCoordinator
+    @StateObject private var nicknameStore = NicknameStore()
+    @State private var editingAccount: AccountSnapshot?
 
     var body: some View {
         ZStack {
@@ -942,27 +1039,38 @@ struct DashboardView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("CODEXBOARD")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(Color(red: 1, green: 0.88, blue: 0.41))
-                        Text("Native Codex usage board for the current system account and any extra accounts you attach.")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                        Text(coordinator.statusLine)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
+                    NextResetSectionView(
+                        accounts: coordinator.cache.accounts,
+                        nicknameStore: nicknameStore
+                    )
 
-                    SummaryStripView(cache: coordinator.cache)
+                    Text("ACCOUNTS")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
 
                     ForEach(coordinator.cache.accounts) { account in
-                        AccountCardView(account: account)
+                        AccountCardView(
+                            account: account,
+                            displayName: nicknameStore.displayName(for: account),
+                            onEdit: {
+                                editingAccount = account
+                            }
+                        )
                     }
                 }
                 .padding(24)
             }
         }
         .preferredColorScheme(.dark)
+        .sheet(item: self.$editingAccount) { account in
+            AccountEditorView(
+                account: account,
+                initialNickname: nicknameStore.nickname(for: account),
+                onSave: { nickname in
+                    nicknameStore.saveNickname(nickname, for: account)
+                }
+            )
+        }
     }
 }
 
