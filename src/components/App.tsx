@@ -48,6 +48,10 @@ const approachList = [
     },
 ];
 
+function getAccountSnapshotKey(account: AccountSnapshot): string {
+    return [account.accountId, account.plan, account.workspaceLabel].join('::');
+}
+
 function getPaceTone(pace: AccountSnapshot['pace']): string {
     switch (pace.status) {
         case 'ahead': {
@@ -149,7 +153,7 @@ function renderAccount(account: AccountSnapshot): JSX.Element {
     const history: HistorySnapshot[] = account.history.toReversed().slice(0, 5);
 
     return (
-        <article className='account-card' key={account.accountId}>
+        <article className='account-card' key={getAccountSnapshotKey(account)}>
             <header className='account-header'>
                 <div>
                     <p className='account-kicker'>{account.plan}</p>

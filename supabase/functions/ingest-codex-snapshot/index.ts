@@ -50,6 +50,10 @@ type IngestPayload = {
     accounts?: AccountSnapshot[];
 };
 
+function buildSnapshotKey(account: AccountSnapshot) {
+    return [account.accountId, account.plan, account.workspaceLabel].join('::');
+}
+
 function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), {
         status,
@@ -74,7 +78,7 @@ function normalizeRows(payload: IngestPayload) {
         payload.accounts ?? (payload.account ? [payload.account] : []);
 
     return accounts.map((account) => ({
-        account_id: account.accountId,
+        account_id: buildSnapshotKey(account),
         color: account.color,
         email: account.email,
         history: account.history,

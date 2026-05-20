@@ -77,6 +77,14 @@ struct PulseConfig: Codable {
     )
 }
 
+func buildSnapshotKey(
+    accountId: String,
+    plan: String,
+    workspaceLabel: String
+) -> String {
+    [accountId, plan, workspaceLabel].joined(separator: "::")
+}
+
 struct SupabaseConfig: Codable {
     let functionURL: String
     let tokenID: String
@@ -444,9 +452,14 @@ final class PulseCoordinator: ObservableObject {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
         let pace = self.projectPace(weeklyWindow: windows.weeklyWindow, rollingWindow: windows.rollingWindow)
+        let snapshotKey = buildSnapshotKey(
+            accountId: accountID,
+            plan: plan,
+            workspaceLabel: workspaceLabel
+        )
 
         return AccountSnapshot(
-            accountId: accountID,
+            accountId: snapshotKey,
             label: label,
             email: email,
             workspaceLabel: workspaceLabel,

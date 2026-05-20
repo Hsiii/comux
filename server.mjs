@@ -37,12 +37,17 @@ function jsonResponse(payload, init = {}) {
     });
 }
 
+function buildSnapshotKey(account) {
+    return [account.accountId, account.plan, account.workspaceLabel].join('::');
+}
+
 function replaceAccount(payload, nextAccount) {
+    const nextAccountKey = buildSnapshotKey(nextAccount);
     const existingAccount = payload.accounts.find(
-        (account) => account.accountId === nextAccount.accountId
+        (account) => buildSnapshotKey(account) === nextAccountKey
     );
     const accounts = payload.accounts.filter(
-        (account) => account.accountId !== nextAccount.accountId
+        (account) => buildSnapshotKey(account) !== nextAccountKey
     );
 
     accounts.push({
