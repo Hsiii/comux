@@ -4,7 +4,7 @@ export default [
     ...completeConfigBase,
 
     {
-        ignores: ['dist/**', 'node_modules/**'],
+        ignores: ['dist/**', 'node_modules/**', 'server.mjs'],
     },
 
     {

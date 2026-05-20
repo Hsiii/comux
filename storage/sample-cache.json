@@ -1,0 +1,111 @@
+{
+    "meta": {
+        "generatedAt": "2026-05-21T00:00:00.000Z",
+        "cachePath": "~/.codexboard/cache.json",
+        "source": "bundled-sample"
+    },
+    "accounts": [
+        {
+            "accountId": "acct-alpha",
+            "label": "Primary Ship Lane",
+            "email": "alpha@example.com",
+            "workspaceLabel": "Client builds",
+            "plan": "Codex Pro",
+            "color": "#65d4ff",
+            "source": "menu bar sync",
+            "lastSyncedAt": "2026-05-21T07:50:00.000Z",
+            "weeklyWindow": {
+                "label": "Weekly window",
+                "usedMinutes": 1060,
+                "limitMinutes": 2400,
+                "remainingMinutes": 1340,
+                "usedPercentage": 44.17,
+                "resetsAt": "2026-05-26T00:00:00.000Z"
+            },
+            "rollingWindow": {
+                "label": "Rolling 5-hour window",
+                "usedMinutes": 148,
+                "limitMinutes": 300,
+                "remainingMinutes": 152,
+                "usedPercentage": 49.33,
+                "resetsAt": "2026-05-21T09:40:00.000Z"
+            },
+            "pace": {
+                "status": "steady",
+                "summary": "On pace to finish with 10.1h in reserve",
+                "detail": "At the current slope this account can absorb another long coding block before the weekly reset."
+            },
+            "history": [
+                {
+                    "capturedAt": "2026-05-21T07:50:00.000Z",
+                    "weeklyUsedMinutes": 1060,
+                    "rollingUsedMinutes": 148,
+                    "note": "Healthy runway before next burst."
+                },
+                {
+                    "capturedAt": "2026-05-21T07:10:00.000Z",
+                    "weeklyUsedMinutes": 1038,
+                    "rollingUsedMinutes": 132,
+                    "note": "Morning sync from menu bar feeder."
+                },
+                {
+                    "capturedAt": "2026-05-21T06:30:00.000Z",
+                    "weeklyUsedMinutes": 1010,
+                    "rollingUsedMinutes": 118,
+                    "note": "Still below half of the 5-hour window."
+                }
+            ]
+        },
+        {
+            "accountId": "acct-bravo",
+            "label": "Overflow Sprint",
+            "email": "bravo@example.com",
+            "workspaceLabel": "Overflow prompts",
+            "plan": "Codex Team",
+            "color": "#ffe169",
+            "source": "browser profile sync",
+            "lastSyncedAt": "2026-05-21T07:48:00.000Z",
+            "weeklyWindow": {
+                "label": "Weekly window",
+                "usedMinutes": 1715,
+                "limitMinutes": 2400,
+                "remainingMinutes": 685,
+                "usedPercentage": 71.46,
+                "resetsAt": "2026-05-24T18:00:00.000Z"
+            },
+            "rollingWindow": {
+                "label": "Rolling 5-hour window",
+                "usedMinutes": 244,
+                "limitMinutes": 300,
+                "remainingMinutes": 56,
+                "usedPercentage": 81.33,
+                "resetsAt": "2026-05-21T08:25:00.000Z"
+            },
+            "pace": {
+                "status": "tight",
+                "summary": "Tight runway with 1.9h left in the week",
+                "detail": "This account is still useful for short bursts, but it is no longer the right place for another deep coding session."
+            },
+            "history": [
+                {
+                    "capturedAt": "2026-05-21T07:48:00.000Z",
+                    "weeklyUsedMinutes": 1715,
+                    "rollingUsedMinutes": 244,
+                    "note": "Best used only for short follow-ups."
+                },
+                {
+                    "capturedAt": "2026-05-21T07:00:00.000Z",
+                    "weeklyUsedMinutes": 1680,
+                    "rollingUsedMinutes": 228,
+                    "note": "Runway shrinking quickly."
+                },
+                {
+                    "capturedAt": "2026-05-21T06:20:00.000Z",
+                    "weeklyUsedMinutes": 1642,
+                    "rollingUsedMinutes": 214,
+                    "note": "Heavy burst during overnight run."
+                }
+            ]
+        }
+    ]
+}

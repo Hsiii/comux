@@ -1,13 +1,3 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-*.tsbuildinfo
-
-# IDE files
-.vscode/
-
-# Lock files
-bun.lock
-package-lock.json
+dist
+node_modules
+macos/CodexBoardPulse/.build
