@@ -806,7 +806,20 @@ final class NicknameStore: ObservableObject {
     private let defaultsKey = "codexboard.nicknames.v1"
 
     init() {
-        self.nicknames = UserDefaults.standard.dictionary(forKey: self.defaultsKey) as? [String: String] ?? [:]
+        self.nicknames = Self.loadNicknames(for: self.defaultsKey)
+    }
+
+    private static func loadNicknames(for defaultsKey: String) -> [String: String] {
+        UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String] ?? [:]
+    }
+
+    private func loadNicknames() -> [String: String] {
+        Self.loadNicknames(for: self.defaultsKey)
+    }
+
+    private func persistNicknames(_ nicknames: [String: String]) {
+        self.nicknames = nicknames
+        UserDefaults.standard.set(nicknames, forKey: self.defaultsKey)
     }
 
     private func storageKey(for account: AccountSnapshot) -> String {
@@ -830,14 +843,15 @@ final class NicknameStore: ObservableObject {
     func saveNickname(_ value: String, for account: AccountSnapshot) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         let key = self.storageKey(for: account)
+        var nextNicknames = self.loadNicknames()
 
         if trimmed.isEmpty {
-            self.nicknames.removeValue(forKey: key)
+            nextNicknames.removeValue(forKey: key)
         } else {
-            self.nicknames[key] = trimmed
+            nextNicknames[key] = trimmed
         }
 
-        UserDefaults.standard.set(self.nicknames, forKey: self.defaultsKey)
+        self.persistNicknames(nextNicknames)
     }
 }
 
