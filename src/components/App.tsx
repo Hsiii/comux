@@ -1,295 +1,324 @@
 import type { CSSProperties, JSX } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-    Activity,
-    AlarmClock,
-    ArrowUpRight,
-    Blend,
-    Clock3,
-    Database,
-    Gauge,
-    Layers3,
-    RefreshCw,
-    ShieldCheck,
-    TimerReset,
-} from 'lucide-react';
+import { Clock3, Pencil, RefreshCw } from 'lucide-react';
 
 import { fetchCache } from '../lib/api.js';
 import {
     formatCountdown,
-    formatHours,
     formatPercentage,
     formatRelativeTime,
-    formatSyncAge,
-    formatWindowLabel,
 } from '../lib/format.js';
-import type {
-    AccountSnapshot,
-    CachePayload,
-    HistorySnapshot,
-    UsageWindow,
-} from '../types.js';
+import type { AccountSnapshot, CachePayload, UsageWindow } from '../types.js';
 
-const approachList = [
-    {
-        title: 'Menu bar pusher',
-        description:
-            'Keep one lightweight macOS utility logged into each account profile and push normalized snapshots into the local cache every few minutes.',
-    },
-    {
-        title: 'Browser profile collectors',
-        description:
-            'Run one Chrome profile per account and let a local script read the session, mint the access token, and update the same cache file.',
-    },
-    {
-        title: 'Remote account relays',
-        description:
-            'Deploy small per-account workers or home agents that only ship sanitized usage windows into your machine, never raw cookies.',
-    },
-];
+const nicknameStorageKey = 'codexboard.nicknames.v1';
+
+type NicknameMap = Record<string, string>;
 
 function getAccountSnapshotKey(account: AccountSnapshot): string {
     return [account.accountId, account.plan, account.workspaceLabel].join('::');
 }
 
-function getPaceTone(pace: AccountSnapshot['pace']): string {
-    switch (pace.status) {
-        case 'ahead': {
-            return 'tone-ahead';
+function clampPercentage(value: number): number {
+    return Math.min(100, Math.max(0, value));
+}
+
+function getTierLabel(plan: string): string {
+    const normalized = plan.trim().toLowerCase();
+
+    if (normalized.includes('team')) {
+        return 'Team';
+    }
+
+    if (normalized.includes('free')) {
+        return 'Free';
+    }
+
+    if (normalized.includes('pro')) {
+        return 'Pro';
+    }
+
+    if (normalized.startsWith('codex ')) {
+        return plan.slice(6);
+    }
+
+    return plan;
+}
+
+function getRemainingPercentage(window: UsageWindow): number {
+    return clampPercentage(100 - window.usedPercentage);
+}
+
+function getWindowDurationMs(window: UsageWindow): number | undefined {
+    const label = window.label.trim().toLowerCase();
+
+    if (label.includes('week')) {
+        return 7 * 24 * 60 * 60 * 1000;
+    }
+
+    if (label.includes('5h')) {
+        return 5 * 60 * 60 * 1000;
+    }
+
+    return undefined;
+}
+
+function getPacePercentage(window: UsageWindow): number {
+    if (window.available === false) {
+        return 0;
+    }
+
+    const durationMs = getWindowDurationMs(window);
+    const resetAtMs = new Date(window.resetsAt).getTime();
+
+    if (
+        durationMs === undefined ||
+        Number.isNaN(resetAtMs) ||
+        durationMs <= 0
+    ) {
+        return 0;
+    }
+
+    const startAtMs = resetAtMs - durationMs;
+    const elapsedMs = Date.now() - startAtMs;
+    return clampPercentage((elapsedMs / durationMs) * 100);
+}
+
+function getNextResetWindow(account: AccountSnapshot): UsageWindow {
+    if (account.rollingWindow.available === false) {
+        return account.weeklyWindow;
+    }
+
+    return new Date(account.rollingWindow.resetsAt).getTime() <=
+        new Date(account.weeklyWindow.resetsAt).getTime()
+        ? account.rollingWindow
+        : account.weeklyWindow;
+}
+
+function getDisplayName(
+    account: AccountSnapshot,
+    nicknames: NicknameMap
+): string {
+    const nickname = nicknames[account.accountId] ?? '';
+    const trimmedNickname = nickname.trim();
+    return trimmedNickname === '' ? account.label : trimmedNickname;
+}
+
+function loadNicknames(): NicknameMap {
+    try {
+        const raw = globalThis.localStorage.getItem(nicknameStorageKey);
+
+        if (raw === null) {
+            return {};
         }
 
-        case 'tight': {
-            return 'tone-tight';
-        }
-
-        case 'over': {
-            return 'tone-over';
-        }
-
-        default: {
-            return 'tone-steady';
-        }
+        const parsed = JSON.parse(raw) as NicknameMap;
+        return parsed;
+    } catch {
+        return {};
     }
 }
 
-function renderWindow(window: UsageWindow, icon: JSX.Element): JSX.Element {
-    if (window.available === false) {
-        return (
-            <article className='window-card window-card-muted'>
-                <div className='window-heading'>
-                    <div className='window-label'>
-                        {icon}
-                        <span>{window.label}</span>
-                    </div>
-                    <span className='window-percent'>n/a</span>
-                </div>
-
-                <div aria-hidden='true' className='meter-shell'>
-                    <div
-                        aria-hidden='true'
-                        className='meter-fill meter-fill-muted'
-                        style={
-                            {
-                                '--meter-width': '0%',
-                            } as CSSProperties
-                        }
-                    />
-                </div>
-
-                <div className='window-metrics'>
-                    <strong>Unavailable</strong>
-                    <span>{formatWindowLabel(window)}</span>
-                </div>
-
-                <div className='window-reset'>
-                    <span>Resets in</span>
-                    <strong>n/a</strong>
-                </div>
-            </article>
-        );
-    }
-
-    return (
-        <article className='window-card'>
-            <div className='window-heading'>
-                <div className='window-label'>
-                    {icon}
-                    <span>{window.label}</span>
-                </div>
-                <span className='window-percent'>
-                    {formatPercentage(window.usedPercentage)}
-                </span>
-            </div>
-
-            <div aria-hidden='true' className='meter-shell'>
-                <div
-                    aria-hidden='true'
-                    className='meter-fill'
-                    style={
-                        {
-                            '--meter-width': `${window.usedPercentage}%`,
-                        } as CSSProperties
-                    }
-                />
-            </div>
-
-            <div className='window-metrics'>
-                <strong>
-                    {formatHours(window.usedMinutes)} /{' '}
-                    {formatHours(window.limitMinutes)}
-                </strong>
-                <span>{formatWindowLabel(window)}</span>
-            </div>
-
-            <div className='window-reset'>
-                <span>Resets in</span>
-                <strong>{formatCountdown(window.resetsAt)}</strong>
-            </div>
-        </article>
+function saveNicknames(nicknames: NicknameMap) {
+    globalThis.localStorage.setItem(
+        nicknameStorageKey,
+        JSON.stringify(nicknames)
     );
 }
 
-function renderAccount(account: AccountSnapshot): JSX.Element {
-    const history: HistorySnapshot[] = account.history.toReversed().slice(0, 5);
+function renderUsageBar(
+    window: UsageWindow,
+    options: {
+        compact?: boolean;
+    } = {}
+): JSX.Element | undefined {
+    if (window.available === false) {
+        return undefined;
+    }
+
+    const remaining = getRemainingPercentage(window);
+    const pace = getPacePercentage(window);
+    const className =
+        options.compact === true
+            ? 'usage-block usage-block-compact'
+            : 'usage-block';
+
+    return (
+        <section className={className}>
+            <div className='usage-copy'>
+                <span>{window.label}</span>
+                <strong>{formatPercentage(remaining)} left</strong>
+            </div>
+
+            <div
+                aria-hidden='true'
+                className='usage-rail'
+                style={
+                    {
+                        '--bar-progress': `${clampPercentage(
+                            window.usedPercentage
+                        )}%`,
+                        '--pace-progress': `${pace}%`,
+                    } as CSSProperties
+                }
+            >
+                <div className='usage-pace' />
+                <div className='usage-fill' />
+            </div>
+        </section>
+    );
+}
+
+function renderAccount(
+    account: AccountSnapshot,
+    nicknames: NicknameMap,
+    onEdit: (account: AccountSnapshot) => void
+): JSX.Element {
+    const nextResetWindow = getNextResetWindow(account);
+    const displayName = getDisplayName(account, nicknames);
+    const tier = getTierLabel(account.plan);
 
     return (
         <article className='account-card' key={getAccountSnapshotKey(account)}>
             <header className='account-header'>
-                <div>
-                    <p className='account-kicker'>{account.plan}</p>
-                    <h3>{account.label}</h3>
-                    <p className='account-meta'>
-                        {account.email} / {account.workspaceLabel}
-                    </p>
+                <div className='account-title-block'>
+                    <div className='account-title-row'>
+                        <h2>{displayName}</h2>
+                        <button
+                            className='edit-button'
+                            onClick={() => {
+                                onEdit(account);
+                            }}
+                            type='button'
+                        >
+                            <Pencil aria-hidden='true' size={14} />
+                            Edit
+                        </button>
+                    </div>
+                    <p className='account-tier'>{tier}</p>
                 </div>
 
-                <div
-                    className='account-chip'
-                    style={
-                        {
-                            '--chip-color': account.color,
-                        } as CSSProperties
-                    }
-                >
-                    <span className='account-chip-dot' />
-                    {account.source}
-                </div>
+                <p className='account-sync'>
+                    <RefreshCw aria-hidden='true' size={14} />
+                    {formatRelativeTime(account.lastSyncedAt)}
+                </p>
             </header>
 
-            <div className='account-grid'>
-                {renderWindow(
-                    account.weeklyWindow,
-                    <AlarmClock aria-hidden='true' size={16} />
-                )}
-                {renderWindow(
-                    account.rollingWindow,
-                    <Clock3 aria-hidden='true' size={16} />
-                )}
-            </div>
+            {renderUsageBar(account.weeklyWindow)}
+            {renderUsageBar(account.rollingWindow, { compact: true })}
 
-            <section className='pace-strip'>
-                <div className='pace-copy'>
-                    <span className='section-overline'>Pace</span>
-                    <strong className={getPaceTone(account.pace)}>
-                        {account.pace.summary}
-                    </strong>
-                </div>
-                <p>{account.pace.detail}</p>
-            </section>
-
-            <section className='history-panel'>
-                <div className='history-heading'>
-                    <span className='section-overline'>Latest captures</span>
-                    <span>
-                        Last sync {formatRelativeTime(account.lastSyncedAt)}
-                    </span>
-                </div>
-
-                <ul className='history-list'>
-                    {history.map((entry: HistorySnapshot) => (
-                        <li key={entry.capturedAt}>
-                            <div>
-                                <strong>
-                                    {formatRelativeTime(entry.capturedAt)}
-                                </strong>
-                                <span>{entry.note}</span>
-                            </div>
-                            <div className='history-values'>
-                                <span>
-                                    Week {formatHours(entry.weeklyUsedMinutes)}
-                                </span>
-                                <span>
-                                    5h {formatHours(entry.rollingUsedMinutes)}
-                                </span>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </section>
+            <footer className='account-reset'>
+                <span>Next reset</span>
+                <strong>
+                    {nextResetWindow.label} in{' '}
+                    {formatCountdown(nextResetWindow.resetsAt)}
+                </strong>
+            </footer>
         </article>
     );
 }
 
-function renderSummary(cache: CachePayload): JSX.Element {
-    const accountCount = cache.accounts.length;
-    let weeklyMinutes = 0;
-    let rollingMinutes = 0;
-
-    for (const account of cache.accounts) {
-        if (account.weeklyWindow.available !== false) {
-            weeklyMinutes += account.weeklyWindow.usedMinutes;
-        }
-
-        if (account.rollingWindow.available !== false) {
-            rollingMinutes += account.rollingWindow.usedMinutes;
-        }
-    }
-
-    const mostUrgentReset: AccountSnapshot | undefined = [...cache.accounts]
-        .filter((account) => account.rollingWindow.available !== false)
+function renderNextReset(
+    cache: CachePayload,
+    nicknames: NicknameMap
+): JSX.Element | undefined {
+    const nextResetAccount = [...cache.accounts]
+        .map((account) => ({
+            account,
+            window: getNextResetWindow(account),
+        }))
         .toSorted(
-            (left: AccountSnapshot, right: AccountSnapshot) =>
-                new Date(left.rollingWindow.resetsAt).getTime() -
-                new Date(right.rollingWindow.resetsAt).getTime()
+            (left, right) =>
+                new Date(left.window.resetsAt).getTime() -
+                new Date(right.window.resetsAt).getTime()
         )
         .at(0);
 
+    if (nextResetAccount === undefined) {
+        return undefined;
+    }
+
     return (
-        <section className='summary-strip'>
-            <article>
-                <span className='section-overline'>Tracked accounts</span>
-                <strong>{accountCount}</strong>
-                <p>Separate cookies, one local portfolio view.</p>
-            </article>
+        <section className='section-shell next-reset-shell'>
+            <div className='section-heading'>
+                <div>
+                    <span className='section-overline'>Next reset</span>
+                    <h1>
+                        {getDisplayName(nextResetAccount.account, nicknames)}{' '}
+                        resets first.
+                    </h1>
+                </div>
 
-            <article>
-                <span className='section-overline'>Weekly burn</span>
-                <strong>{formatHours(weeklyMinutes)}</strong>
-                <p>Combined usage across the active cache.</p>
-            </article>
+                <div className='reset-pulse'>
+                    <Clock3 aria-hidden='true' size={16} />
+                    <strong>
+                        {formatCountdown(nextResetAccount.window.resetsAt)}
+                    </strong>
+                </div>
+            </div>
 
-            <article>
-                <span className='section-overline'>Rolling 5h</span>
-                <strong>{formatHours(rollingMinutes)}</strong>
-                <p>Useful when choosing the next account to burn.</p>
-            </article>
-
-            <article>
-                <span className='section-overline'>Next reset</span>
-                <strong>
-                    {mostUrgentReset === undefined
-                        ? 'n/a'
-                        : formatCountdown(
-                              mostUrgentReset.rollingWindow.resetsAt
-                          )}
-                </strong>
-                <p>
-                    {mostUrgentReset === undefined
-                        ? 'No accounts loaded.'
-                        : `${mostUrgentReset.label} rolling window`}
-                </p>
-            </article>
+            <p className='next-reset-note'>
+                {nextResetAccount.window.label} window for{' '}
+                {getTierLabel(nextResetAccount.account.plan)} tier. Updated{' '}
+                {formatRelativeTime(nextResetAccount.account.lastSyncedAt)}.
+            </p>
         </section>
+    );
+}
+
+function renderDialog(
+    account: AccountSnapshot | undefined,
+    draftNickname: string,
+    setDraftNickname: (value: string) => void,
+    onClose: () => void,
+    onSave: () => void
+): JSX.Element | undefined {
+    if (account === undefined) {
+        return undefined;
+    }
+
+    return (
+        <div className='dialog-backdrop' role='presentation'>
+            <dialog
+                aria-labelledby='nickname-dialog-title'
+                className='nickname-dialog'
+                open
+            >
+                <div className='dialog-copy'>
+                    <span className='section-overline'>Account nickname</span>
+                    <h2 id='nickname-dialog-title'>{account.label}</h2>
+                    <p>{account.email}</p>
+                </div>
+
+                <label className='dialog-field'>
+                    <span>Nickname</span>
+                    <input
+                        onChange={(event) => {
+                            setDraftNickname(event.target.value);
+                        }}
+                        type='text'
+                        value={draftNickname}
+                    />
+                </label>
+
+                <div className='dialog-actions'>
+                    <button
+                        className='dialog-button dialog-button-muted'
+                        onClick={onClose}
+                        type='button'
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        className='dialog-button'
+                        onClick={onSave}
+                        type='button'
+                    >
+                        Save
+                    </button>
+                </div>
+            </dialog>
+        </div>
     );
 }
 
@@ -299,224 +328,99 @@ export function App(): JSX.Element {
         queryFn: fetchCache,
         refetchInterval: 60_000,
     });
+    const [nicknames, setNicknames] = useState<NicknameMap>({});
+    const [editingAccount, setEditingAccount] = useState<AccountSnapshot>();
+    const [draftNickname, setDraftNickname] = useState('');
+
+    useEffect(() => {
+        setNicknames(loadNicknames());
+    }, []);
 
     const cache = cacheQuery.data;
 
+    function openEditor(account: AccountSnapshot) {
+        setEditingAccount(account);
+        setDraftNickname(nicknames[account.accountId] ?? '');
+    }
+
+    function closeEditor() {
+        setEditingAccount(undefined);
+        setDraftNickname('');
+    }
+
+    function saveNickname() {
+        if (editingAccount === undefined) {
+            return;
+        }
+
+        const nextNicknames = { ...nicknames };
+        const trimmed = draftNickname.trim();
+
+        if (trimmed === '') {
+            const restNicknames = Object.fromEntries(
+                Object.entries(nextNicknames).filter(
+                    ([accountId]) => accountId !== editingAccount.accountId
+                )
+            );
+            setNicknames(restNicknames);
+            saveNicknames(restNicknames);
+        } else {
+            nextNicknames[editingAccount.accountId] = trimmed;
+            setNicknames(nextNicknames);
+            saveNicknames(nextNicknames);
+        }
+
+        closeEditor();
+    }
+
     return (
-        <main className='app-shell'>
-            <section className='hero-panel'>
-                <div className='hero-grid'>
-                    <div className='hero-copy'>
-                        <div className='eyebrow'>
-                            <Blend aria-hidden='true' size={16} />
-                            Multi-account Codex telemetry
-                        </div>
-
-                        <p className='hero-kicker'>CodexBoard</p>
-                        <h1>
-                            One local dashboard for every Codex account you are
-                            cycling through.
-                        </h1>
-                        <p className='hero-lede'>
-                            The current system account is pulled automatically
-                            from your local Codex auth state. Extra accounts can
-                            still push fresh weekly, rolling 5-hour, pace, and
-                            reset data into the same cache so you can decide
-                            where to spend the next prompt without tab hopping.
+        <>
+            <main className='app-shell'>
+                {cacheQuery.isError ? (
+                    <section className='section-shell error-panel'>
+                        <span className='section-overline'>
+                            Cache unavailable
+                        </span>
+                        <h1>CodexBoard could not load account snapshots.</h1>
+                        <p>
+                            Check the Supabase envs or the local cache endpoint,
+                            then refresh.
                         </p>
+                    </section>
+                ) : undefined}
 
-                        <div className='hero-actions'>
-                            <a
-                                className='primary-action'
-                                href='http://localhost:8787/api/cache'
-                                rel='noreferrer'
-                                target='_blank'
-                            >
-                                Inspect local cache
-                                <ArrowUpRight aria-hidden='true' size={16} />
-                            </a>
-                            <a
-                                className='secondary-action'
-                                href='https://github.com/steipete/CodexBar'
-                                rel='noreferrer'
-                                target='_blank'
-                            >
-                                CodexBar reference
-                            </a>
+                {cache === undefined
+                    ? undefined
+                    : renderNextReset(cache, nicknames)}
+
+                <section className='section-shell accounts-shell'>
+                    <div className='section-heading'>
+                        <div>
+                            <span className='section-overline'>Accounts</span>
+                            <h1>Quota posture at a glance.</h1>
                         </div>
+
+                        <p className='accounts-note'>
+                            Weekly is the main bar. Team accounts expose a
+                            subtle 5-hour sub bar under it.
+                        </p>
                     </div>
 
-                    <div className='status-panel'>
-                        <div className='status-card'>
-                            <div className='status-heading'>
-                                <Database aria-hidden='true' size={16} />
-                                Cache endpoint
-                            </div>
-                            <strong>localhost:8787</strong>
-                            <p>
-                                {cache === undefined
-                                    ? 'Waiting for local API.'
-                                    : cache.meta.cachePath}
-                            </p>
-                        </div>
-
-                        <div className='status-card'>
-                            <div className='status-heading'>
-                                <RefreshCw aria-hidden='true' size={16} />
-                                Freshness
-                            </div>
-                            <strong>
-                                {cache === undefined
-                                    ? 'Offline'
-                                    : formatSyncAge(cache.meta.generatedAt)}
-                            </strong>
-                            <p>
-                                {cache === undefined
-                                    ? 'Start the Bun server and feeder.'
-                                    : `Last build at ${new Date(
-                                          cache.meta.generatedAt
-                                      ).toLocaleString()}`}
-                            </p>
-                        </div>
-
-                        <div className='status-card'>
-                            <div className='status-heading'>
-                                <ShieldCheck aria-hidden='true' size={16} />
-                                Cookie model
-                            </div>
-                            <strong>Account-isolated</strong>
-                            <p>
-                                The ambient Codex account comes from
-                                `~/.codex/auth.json`; feeder accounts can keep
-                                their own cookies and only emit sanitized usage
-                                windows into the cache.
-                            </p>
-                        </div>
+                    <div className='accounts-grid'>
+                        {cache?.accounts.map((account) =>
+                            renderAccount(account, nicknames, openEditor)
+                        )}
                     </div>
-                </div>
-            </section>
-
-            {cacheQuery.isError ? (
-                <section className='error-panel'>
-                    <h2>Local cache unavailable</h2>
-                    <p>
-                        Start `bun run dev:server` or `bun run dev` to expose
-                        the local cache API. The dashboard expects `GET
-                        /api/cache`.
-                    </p>
                 </section>
-            ) : undefined}
+            </main>
 
-            {cache === undefined ? undefined : renderSummary(cache)}
-
-            <section className='section-shell'>
-                <div className='section-heading'>
-                    <div>
-                        <span className='section-overline'>
-                            Account portfolio
-                        </span>
-                        <h2>
-                            Weekly, 5-hour, pace, and reset timing together.
-                        </h2>
-                    </div>
-                    <p>
-                        The cards below are normalized snapshots. They do not
-                        depend on holding every account open in the browser at
-                        once, and the current system account is discovered
-                        automatically.
-                    </p>
-                </div>
-
-                <div className='accounts-grid'>
-                    {cache?.accounts.map((account) => renderAccount(account))}
-                </div>
-            </section>
-
-            <section className='section-shell architecture-panel'>
-                <div className='section-heading'>
-                    <div>
-                        <span className='section-overline'>
-                            Local architecture
-                        </span>
-                        <h2>Three moving pieces, one durable cache.</h2>
-                    </div>
-                    <p>
-                        This is built for the current constraint: one cookie can
-                        only expose one account context at a time.
-                    </p>
-                </div>
-
-                <div className='architecture-grid'>
-                    <article className='architecture-card'>
-                        <Layers3 aria-hidden='true' size={20} />
-                        <h3>Frontend dashboard</h3>
-                        <p>
-                            Vite + React renders the local cache, aggregates
-                            resets, and lets you compare accounts side by side.
-                        </p>
-                    </article>
-
-                    <article className='architecture-card'>
-                        <Database aria-hidden='true' size={20} />
-                        <h3>Bun cache service</h3>
-                        <p>
-                            A local API stores sanitized snapshots in a JSON
-                            file under your home directory so the UI can poll
-                            one stable source.
-                        </p>
-                    </article>
-
-                    <article className='architecture-card'>
-                        <Activity aria-hidden='true' size={20} />
-                        <h3>macOS feeder</h3>
-                        <p>
-                            The Swift menu bar agent fetches per-account Codex
-                            usage using that account&apos;s own ChatGPT cookie,
-                            then posts the normalized result back to the local
-                            cache.
-                        </p>
-                    </article>
-                </div>
-            </section>
-
-            <section className='section-shell proposal-panel'>
-                <div className='section-heading'>
-                    <div>
-                        <span className='section-overline'>
-                            Other approaches
-                        </span>
-                        <h2>
-                            Ways to improve multi-account tracking beyond the
-                            MVP.
-                        </h2>
-                    </div>
-                    <p>
-                        If the cookie-based path becomes brittle, these are the
-                        next practical upgrades.
-                    </p>
-                </div>
-
-                <div className='proposal-grid'>
-                    {approachList.map((approach) => (
-                        <article className='proposal-card' key={approach.title}>
-                            <Gauge aria-hidden='true' size={18} />
-                            <h3>{approach.title}</h3>
-                            <p>{approach.description}</p>
-                        </article>
-                    ))}
-                </div>
-            </section>
-
-            <section className='section-shell footer-panel'>
-                <div className='footer-note'>
-                    <TimerReset aria-hidden='true' size={18} />
-                    <p>
-                        The bundled demo data is stored locally and can be
-                        replaced by live snapshots once the feeder is
-                        configured.
-                    </p>
-                </div>
-            </section>
-        </main>
+            {renderDialog(
+                editingAccount,
+                draftNickname,
+                setDraftNickname,
+                closeEditor,
+                saveNickname
+            )}
+        </>
     );
 }
