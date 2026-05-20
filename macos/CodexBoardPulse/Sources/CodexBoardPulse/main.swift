@@ -409,17 +409,21 @@ final class PulseCoordinator: ObservableObject {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
         let pace = self.projectPace(weeklyWindow: windows.weeklyWindow, rollingWindow: windows.rollingWindow)
+        let resolvedWorkspaceLabel = self.resolveWorkspaceLabel(
+            payload: payload,
+            fallback: workspaceLabel
+        )
         let snapshotKey = buildSnapshotKey(
             accountId: accountID,
             plan: plan,
-            workspaceLabel: workspaceLabel
+            workspaceLabel: resolvedWorkspaceLabel
         )
 
         return AccountSnapshot(
             accountId: snapshotKey,
             label: label,
             email: email,
-            workspaceLabel: workspaceLabel,
+            workspaceLabel: resolvedWorkspaceLabel,
             plan: plan,
             color: color,
             source: source,
@@ -462,6 +466,47 @@ final class PulseCoordinator: ObservableObject {
             weeklyWindow: self.buildWindow(label: "Weekly window", rawWindow: nil),
             rollingWindow: self.buildWindow(label: "Rolling 5-hour window", rawWindow: primaryWindow)
         )
+    }
+
+    private func resolveWorkspaceLabel(
+        payload: [String: Any],
+        fallback: String
+    ) -> String {
+        let directCandidates = [
+            "workspace_name",
+            "workspaceName",
+            "team_workspace_name",
+            "teamWorkspaceName"
+        ]
+
+        for key in directCandidates {
+            if let value = payload[key] as? String,
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+
+        let nestedCandidates = [
+            "workspace",
+            "current_workspace",
+            "team",
+            "organization"
+        ]
+
+        for key in nestedCandidates {
+            guard let nested = payload[key] as? [String: Any] else {
+                continue
+            }
+
+            for nestedKey in ["name", "workspace_name", "display_name"] {
+                if let value = nested[nestedKey] as? String,
+                   !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return value
+                }
+            }
+        }
+
+        return fallback
     }
 
     private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {
