@@ -769,7 +769,7 @@ private func windowDuration(for window: UsageWindow) -> TimeInterval? {
     return nil
 }
 
-private func pacePercentage(for window: UsageWindow) -> Double {
+private func expectedRemainingPercentage(for window: UsageWindow) -> Double {
     guard window.available,
           let duration = windowDuration(for: window),
           let resetDate = ISO8601DateFormatter().date(from: window.resetsAt)
@@ -779,7 +779,7 @@ private func pacePercentage(for window: UsageWindow) -> Double {
 
     let startDate = resetDate.addingTimeInterval(-duration)
     let elapsed = Date().timeIntervalSince(startDate)
-    return clampPercentage((elapsed / duration) * 100)
+    return clampPercentage(100 - ((elapsed / duration) * 100))
 }
 
 private func nextResetWindow(for account: AccountSnapshot) -> UsageWindow {
@@ -852,7 +852,7 @@ struct WindowCardView: View {
                     RoundedRectangle(cornerRadius: 999)
                         .fill(Color.white.opacity(0.12))
                         .frame(
-                            width: geometry.size.width * CGFloat(pacePercentage(for: window) / 100)
+                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
                         )
                     LinearGradient(
                         colors: [
@@ -866,7 +866,7 @@ struct WindowCardView: View {
                         .mask(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 999)
                                 .frame(
-                                    width: geometry.size.width * CGFloat(clampPercentage(window.usedPercentage) / 100)
+                                    width: geometry.size.width * CGFloat(Double(remainingPercentage(for: window)) / 100)
                                 )
                         }
                 }
