@@ -9,13 +9,13 @@
     },
     "scripts": {
         "dev": "vite",
-        "build": "bunx tsc -p tsconfig.app.json --noEmit && vite build",
+        "build": "vite build",
         "preview": "vite preview",
         "lint": "bunx eslint .",
         "lint:fix": "bunx eslint . --fix",
         "format": "bunx prettier . --write",
         "format:check": "bunx prettier . --check",
-        "typecheck": "bunx tsc -p tsconfig.app.json --noEmit",
+        "typecheck": "bunx tsc -p tsconfig.json --noEmit",
         "check": "bun run typecheck && bun run lint && bun run format:check && bun run build"
     },
     "dependencies": {
