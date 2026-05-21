@@ -341,9 +341,9 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         LinearGradient(
             stops: [
                 .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.03), location: 0.36),
-                .init(color: .white.opacity(0.12), location: 0.5),
-                .init(color: .white.opacity(0.03), location: 0.64),
+                .init(color: .white.opacity(0.012), location: 0.24),
+                .init(color: .white.opacity(0.032), location: 0.5),
+                .init(color: .white.opacity(0.012), location: 0.76),
                 .init(color: .white.opacity(0), location: 1),
             ],
             startPoint: .leading,
@@ -390,7 +390,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
                         if window.available && isActive && currentFraction > 0 {
                             shimmerBand
-                                .frame(width: geometry.size.width * 0.42)
+                                .frame(width: geometry.size.width * 0.56)
                                 .offset(x: geometry.size.width * shimmerTravel)
                                 .blendMode(.screen)
                                 .mask(alignment: .leading) {
@@ -405,14 +405,14 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .onAppear {
                 guard isActive else { return }
                 shimmerTravel = 1.15
-                withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
                     shimmerTravel = -0.42
                 }
             }
             .onChange(of: isActive) { _, active in
                 if active {
                     shimmerTravel = 1.15
-                    withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                    withAnimation(.linear(duration: 4.8).repeatForever(autoreverses: false)) {
                         shimmerTravel = -0.42
                     }
                 } else {
