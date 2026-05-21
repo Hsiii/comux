@@ -93,6 +93,7 @@ struct SlimDashboardPanelView: View {
                     }
                 }
             }
+            .scrollBounceBehavior(.basedOnSize)
             .hidesAppKitScrollIndicators()
             .onPreferenceChange(ViewHeightKey.self) { height in
                 self.measuredContentHeight = height
