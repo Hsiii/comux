@@ -1,9 +1,33 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+final class TerminationController {
+    static let shared = TerminationController()
+
+    private(set) var allowTermination = false
+
+    func requestQuit() {
+        self.allowTermination = true
+        NSApp.terminate(nil)
+    }
+}
+
+final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        TerminationController.shared.allowTermination ? .terminateNow : .terminateCancel
+    }
+}
+
 @main
 struct CodexMuxApp: App {
     @StateObject private var coordinator = PulseCoordinator()
+    @NSApplicationDelegateAdaptor(CodexMuxAppDelegate.self) private var appDelegate
+
+    init() {
+        // Keep the menu bar process resident even when it has no regular windows.
+        ProcessInfo.processInfo.disableAutomaticTermination("CodexMux menu bar app")
+    }
 
     var body: some Scene {
         MenuBarExtra {
