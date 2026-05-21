@@ -53,6 +53,24 @@ private struct ScrollIndicatorConfigurator: NSViewRepresentable {
     }
 }
 
+private final class FirstResponderResetView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.makeFirstResponder(nil)
+        }
+    }
+}
+
+private struct InitialFirstResponderResetter: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        FirstResponderResetView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
 extension View {
     func usesSubtleAppKitScrollIndicators() -> some View {
         self
@@ -85,6 +103,7 @@ struct SlimDashboardPanelView: View {
             self.measuredContentHeight = max(height, minPanelHeight)
         }
         .preferredColorScheme(.dark)
+        .background(InitialFirstResponderResetter())
         .task {
             await coordinator.syncNow()
         }
