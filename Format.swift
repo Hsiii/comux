@@ -8,7 +8,7 @@ func formatCountdown(_ value: String) -> String {
     let diff = Int(date.timeIntervalSinceNow)
 
     if diff <= 0 {
-        return "resetting"
+        return "just reset"
     }
 
     let minutes = diff / 60
