@@ -18,7 +18,7 @@ struct CodexMuxApp: App {
     }
 
     private static var codexMenuBarIcon: NSImage {
-        guard let url = Bundle.module.url(forResource: "codex-menubar", withExtension: "png"),
+        guard let url = Bundle.module.url(forResource: "codex-menubar", withExtension: "pdf"),
               let image = NSImage(contentsOf: url)
         else {
             return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
