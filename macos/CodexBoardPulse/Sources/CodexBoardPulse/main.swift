@@ -900,6 +900,15 @@ struct WindowCardView: View {
             .frame(height: compact ? 8 : 14)
             .opacity(window.available ? 1 : 0)
 
+            HStack {
+                Text("Resets")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(window.available ? formatCountdown(window.resetsAt) : "n/a")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -1035,16 +1044,6 @@ struct AccountCardView: View {
             if account.rollingWindow.available {
                 WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
             }
-
-            HStack {
-                Text("Reset")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(formatCountdown(nextResetWindow(for: account).resetsAt))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
         }
         .padding(20)
         .background(Color.white.opacity(0.04))
@@ -1122,10 +1121,6 @@ struct SlimAccountCardView: View {
             if account.rollingWindow.available {
                 WindowCardView(window: account.rollingWindow, compact: true, isLocked: false)
             }
-
-            Text("Resets in \(formatCountdown(nextResetWindow(for: account).resetsAt))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(14)
         .background(Color.white.opacity(0.04))
