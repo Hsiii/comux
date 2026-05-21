@@ -1,5 +1,4 @@
 import AppKit
-import OSLog
 import SwiftUI
 
 @MainActor
@@ -7,17 +6,14 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = PulseCoordinator()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
-    private let logger = Logger(subsystem: "dev.hsi.codexmux", category: "menubar")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        self.logger.notice("applicationDidFinishLaunching bundleURL=\(Bundle.main.bundleURL.path(), privacy: .public)")
         self.coordinator.start()
         ProcessInfo.processInfo.disableAutomaticTermination("CodexMux menu bar app")
+        NSApp.setActivationPolicy(.accessory)
         DispatchQueue.main.async {
-            self.logger.notice("installing status item")
             self.installStatusItem()
             self.installPopover()
-            self.logger.notice("status item installed hasButton=\(self.statusItem?.button != nil, privacy: .public)")
         }
     }
 
@@ -26,16 +22,15 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.autosaveName = "CodexMuxStatusItem"
         statusItem.isVisible = true
 
         if let button = statusItem.button {
-            button.image = Self.codexMenuBarIcon
-            button.imagePosition = .imageOnly
-            if button.image == nil {
-                button.title = "CM"
-            }
+            button.title = "CM"
+            button.image = nil
+            button.imagePosition = .noImage
+            button.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -68,7 +63,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static var codexMenuBarIcon: NSImage {
-        guard let url = AppResources.bundle?.url(forResource: "icon", withExtension: "png", subdirectory: "assets"),
+        guard let url = AppResources.url(forResource: "icon", withExtension: "png", subdirectory: "assets"),
               let image = NSImage(contentsOf: url)
         else {
             return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
@@ -78,16 +73,5 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         image.isTemplate = true
         image.accessibilityDescription = "CodexMux"
         return image
-    }
-}
-
-@main
-struct CodexMuxApp: App {
-    @NSApplicationDelegateAdaptor(CodexMuxAppDelegate.self) private var appDelegate
-
-    var body: some Scene {
-        Settings {
-            EmptyView()
-        }
     }
 }

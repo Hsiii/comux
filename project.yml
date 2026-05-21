@@ -1,0 +1,28 @@
+name: CodexMux
+options:
+  bundleIdPrefix: dev.hsi
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    PRODUCT_NAME: CodexMux
+    PRODUCT_BUNDLE_IDENTIFIER: dev.hsi.codexmux.app
+    CODE_SIGN_STYLE: Automatic
+targets:
+  CodexMux:
+    type: application
+    platform: macOS
+    sources:
+      - path: src
+    resources:
+      - path: assets
+    settings:
+      base:
+        ENABLE_DEBUG_DYLIB: false
+        INFOPLIST_KEY_CFBundleDisplayName: CodexMux
+        INFOPLIST_KEY_CFBundleName: CodexMux
+        INFOPLIST_KEY_CFBundleIconFile: CodexMux
+        INFOPLIST_KEY_NSHighResolutionCapable: true
+        INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
+        GENERATE_INFOPLIST_FILE: true
