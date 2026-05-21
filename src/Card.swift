@@ -321,8 +321,8 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             } else {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.4, green: 0.49, blue: 0.92).opacity(0.2),
-                        Color(red: 0.46, green: 0.29, blue: 0.64).opacity(0.14),
+                        Color(red: 0.4, green: 0.49, blue: 0.92).opacity(0.28),
+                        Color(red: 0.46, green: 0.29, blue: 0.64).opacity(0.2),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
