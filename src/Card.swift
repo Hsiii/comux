@@ -181,20 +181,23 @@ struct SessionUsageRingView: View {
 struct WeeklyUsageSurfaceView<Content: View>: View {
     let window: UsageWindow
     let isLocked: Bool
-    let cornerRadius: CGFloat
+    let topCornerRadius: CGFloat
+    let bottomCornerRadius: CGFloat
     let contentPadding: CGFloat
     @ViewBuilder let content: Content
 
     init(
         window: UsageWindow,
         isLocked: Bool,
-        cornerRadius: CGFloat,
+        topCornerRadius: CGFloat,
+        bottomCornerRadius: CGFloat,
         contentPadding: CGFloat,
         @ViewBuilder content: () -> Content
     ) {
         self.window = window
         self.isLocked = isLocked
-        self.cornerRadius = cornerRadius
+        self.topCornerRadius = topCornerRadius
+        self.bottomCornerRadius = bottomCornerRadius
         self.contentPadding = contentPadding
         self.content = content()
     }
@@ -211,8 +214,14 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         expectedRemainingPercentage(for: window) < Double(displayRemainingPercentage(for: window))
     }
 
-    private var surfaceShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    private var surfaceShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: topCornerRadius,
+            bottomLeadingRadius: bottomCornerRadius,
+            bottomTrailingRadius: bottomCornerRadius,
+            topTrailingRadius: topCornerRadius,
+            style: .continuous
+        )
     }
 
     private var tintedFill: some View {
@@ -291,12 +300,17 @@ struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
 
+    private var hasSessionInfo: Bool {
+        account.rollingWindow.available
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
-                cornerRadius: 20,
+                topCornerRadius: 24,
+                bottomCornerRadius: hasSessionInfo ? 0 : 24,
                 contentPadding: 20
             ) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -340,9 +354,9 @@ struct AccountCardView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 }
+                .padding(.horizontal, 20)
             }
         }
-        .padding(20)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
@@ -352,12 +366,17 @@ struct SlimAccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
 
+    private var hasSessionInfo: Bool {
+        account.rollingWindow.available
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
-                cornerRadius: 16,
+                topCornerRadius: 20,
+                bottomCornerRadius: hasSessionInfo ? 0 : 20,
                 contentPadding: 14
             ) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -403,9 +422,9 @@ struct SlimAccountCardView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 }
+                .padding(.horizontal, 14)
             }
         }
-        .padding(14)
         .background(Color.white.opacity(0.04))
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
