@@ -155,7 +155,6 @@ struct WindowCardView: View {
 struct RollingUsageInlineView: View {
     let window: UsageWindow
     let size: CGFloat
-    let labelSpacing: CGFloat
 
     private var currentFraction: CGFloat {
         CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
@@ -207,21 +206,19 @@ struct RollingUsageInlineView: View {
     }
 
     var body: some View {
-        HStack(spacing: labelSpacing) {
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: lineWidth)
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.08), lineWidth: lineWidth)
 
-                expectedRing
+            expectedRing
 
-                if showsExpectedOverlay {
-                    brightCurrentRing
-                } else {
-                    currentRing
-                }
+            if showsExpectedOverlay {
+                brightCurrentRing
+            } else {
+                currentRing
             }
-            .frame(width: size, height: size)
         }
+        .frame(width: size, height: size)
         .opacity(window.available ? 1 : 0)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("5 hour session usage")
@@ -233,7 +230,6 @@ struct HeaderIdentityClusterView: View {
     let displayName: String
     let rollingWindow: UsageWindow
     let nameFont: Font
-    let metricFont: Font
     let clusterWidth: CGFloat
     let ringSize: CGFloat
     let spacing: CGFloat
@@ -244,23 +240,19 @@ struct HeaderIdentityClusterView: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: spacing) {
-            Text(truncatedDisplayName)
-                .font(nameFont)
-                .lineLimit(1)
+            HStack(alignment: .firstTextBaseline, spacing: spacing) {
+                Text(truncatedDisplayName)
+                    .font(nameFont)
+                    .lineLimit(1)
 
-            Spacer(minLength: 8)
-
-            if rollingWindow.available {
-                Text(displayWindowLabel(for: rollingWindow))
-                    .font(metricFont)
-                    .foregroundStyle(.secondary)
-
-                RollingUsageInlineView(
-                    window: rollingWindow,
-                    size: ringSize,
-                    labelSpacing: 0
-                )
+                if rollingWindow.available {
+                    RollingUsageInlineView(
+                        window: rollingWindow,
+                        size: ringSize
+                    )
+                }
             }
+            Spacer(minLength: 8)
         }
         .frame(width: clusterWidth, alignment: .leading)
     }
@@ -403,7 +395,6 @@ struct AccountCardView: View {
                             displayName: displayName,
                             rollingWindow: account.rollingWindow,
                             nameFont: .title3.weight(.semibold),
-                            metricFont: .caption2.weight(.semibold),
                             clusterWidth: 220,
                             ringSize: 14,
                             spacing: 8
@@ -458,7 +449,6 @@ struct SlimAccountCardView: View {
                             displayName: displayName,
                             rollingWindow: account.rollingWindow,
                             nameFont: .headline.weight(.semibold),
-                            metricFont: .caption2.weight(.semibold),
                             clusterWidth: 188,
                             ringSize: 12,
                             spacing: 6
