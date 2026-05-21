@@ -29,7 +29,7 @@ swift run
 ## Extra accounts
 
 1. Create `~/.codexboard/accounts.json`.
-2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [main.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/Sources/CodexBoardPulse/main.swift).
+2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [main.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/main.swift).
 3. Run the app.
 
 ## Notes

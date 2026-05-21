@@ -10,7 +10,9 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CodexBoardPulse",
-            path: "Sources/CodexBoardPulse"
+            path: ".",
+            exclude: ["README.md", ".gitignore"],
+            sources: ["main.swift"]
         )
     ]
 )
