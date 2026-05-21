@@ -5,7 +5,7 @@ private struct ViewHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+        value = max(value, nextValue())
     }
 }
 
@@ -78,10 +78,8 @@ struct SlimDashboardPanelView: View {
             .scrollBounceBehavior(.basedOnSize)
             .usesSubtleAppKitScrollIndicators()
         }
-        .background {
-            self.panelContent
-                .fixedSize(horizontal: false, vertical: true)
-                .hidden()
+        .overlay(alignment: .topLeading) {
+            self.measuringContent
         }
         .onPreferenceChange(ViewHeightKey.self) { height in
             self.measuredContentHeight = max(height, minPanelHeight)
@@ -125,12 +123,20 @@ struct SlimDashboardPanelView: View {
             }
         }
         .padding(16)
-        .background {
-            GeometryReader { geometry in
+    }
+
+    private var measuringContent: some View {
+        self.panelContent
+            .fixedSize(horizontal: false, vertical: true)
+            .background {
+                GeometryReader { geometry in
                 Color.clear
                     .preference(key: ViewHeightKey.self, value: geometry.size.height)
+                }
             }
-        }
+            .frame(width: panelWidth, alignment: .topLeading)
+            .hidden()
+            .allowsHitTesting(false)
     }
 }
 
