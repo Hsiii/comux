@@ -128,6 +128,7 @@ struct SlimDashboardPanelView: View {
                 Button("Manage Accounts") {
                     isManagingAccounts = true
                 }
+                .focusable(false)
                 .buttonStyle(.plain)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
