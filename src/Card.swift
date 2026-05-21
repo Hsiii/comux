@@ -155,6 +155,7 @@ struct WindowCardView: View {
 struct RollingUsageInlineView: View {
     let window: UsageWindow
     let size: CGFloat
+    let labelSpacing: CGFloat
 
     private var currentFraction: CGFloat {
         CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
@@ -206,11 +207,7 @@ struct RollingUsageInlineView: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
-            Text(displayWindowLabel(for: window))
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-
+        HStack(spacing: labelSpacing) {
             ZStack {
                 Circle()
                     .stroke(Color.white.opacity(0.08), lineWidth: lineWidth)
@@ -229,6 +226,39 @@ struct RollingUsageInlineView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("5 hour session usage")
         .accessibilityValue(sessionResetText(for: window) + ", " + percentageText(for: window) + " remaining")
+    }
+}
+
+struct HeaderIdentityClusterView: View {
+    let displayName: String
+    let rollingWindow: UsageWindow
+    let nameFont: Font
+    let metricFont: Font
+    let clusterWidth: CGFloat
+    let ringSize: CGFloat
+    let spacing: CGFloat
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: spacing) {
+            Text(displayName)
+                .font(nameFont)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            if rollingWindow.available {
+                Text(displayWindowLabel(for: rollingWindow))
+                    .font(metricFont)
+                    .foregroundStyle(.secondary)
+
+                RollingUsageInlineView(
+                    window: rollingWindow,
+                    size: ringSize,
+                    labelSpacing: 0
+                )
+            }
+        }
+        .frame(width: clusterWidth, alignment: .leading)
     }
 }
 
@@ -365,15 +395,15 @@ struct AccountCardView: View {
             ) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(displayName)
-                                .font(.title3.weight(.semibold))
-                                .lineLimit(1)
-
-                            if account.rollingWindow.available {
-                                RollingUsageInlineView(window: account.rollingWindow, size: 14)
-                            }
-                        }
+                        HeaderIdentityClusterView(
+                            displayName: displayName,
+                            rollingWindow: account.rollingWindow,
+                            nameFont: .title3.weight(.semibold),
+                            metricFont: .caption2.weight(.semibold),
+                            clusterWidth: 220,
+                            ringSize: 14,
+                            spacing: 8
+                        )
 
                         Spacer(minLength: 12)
 
@@ -420,15 +450,15 @@ struct SlimAccountCardView: View {
             ) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(displayName)
-                                .font(.headline.weight(.semibold))
-                                .lineLimit(1)
-
-                            if account.rollingWindow.available {
-                                RollingUsageInlineView(window: account.rollingWindow, size: 12)
-                            }
-                        }
+                        HeaderIdentityClusterView(
+                            displayName: displayName,
+                            rollingWindow: account.rollingWindow,
+                            nameFont: .headline.weight(.semibold),
+                            metricFont: .caption2.weight(.semibold),
+                            clusterWidth: 188,
+                            ringSize: 12,
+                            spacing: 6
+                        )
 
                         Spacer(minLength: 12)
 
