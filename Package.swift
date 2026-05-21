@@ -10,8 +10,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CodexMux",
-            path: ".",
-            exclude: ["README.md", ".gitignore"],
+            path: "src",
             sources: [
                 "App.swift",
                 "Model.swift",
@@ -24,7 +23,7 @@ let package = Package(
                 "Menu.swift",
             ],
             resources: [
-                .process("Resources")
+                .process("../assets")
             ]
         )
     ]

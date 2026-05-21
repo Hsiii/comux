@@ -29,7 +29,7 @@ swift run CodexMux
 ## Extra accounts
 
 1. Create `~/.codexmux/accounts.json`.
-2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [Model.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/Model.swift).
+2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [Model.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/src/Model.swift).
 3. Run the app.
 
 ## Notes
