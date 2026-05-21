@@ -12,7 +12,7 @@ struct WindowCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(window.available ? "\(remainingPercentage(for: window))% left" : "n/a")
+                Text(window.available ? windowStatusText(for: window) : "n/a")
                     .font(.caption.weight(.semibold))
             }
 
@@ -44,16 +44,6 @@ struct WindowCardView: View {
             }
             .frame(height: compact ? 8 : 14)
             .opacity(window.available ? 1 : 0)
-
-            HStack {
-                Text("Resets")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(window.available ? formatCountdown(window.resetsAt) : "n/a")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 

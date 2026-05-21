@@ -45,6 +45,23 @@ func remainingPercentage(for window: UsageWindow) -> Int {
     Int(round(clampPercentage(100 - window.usedPercentage)))
 }
 
+func windowStatusText(for window: UsageWindow) -> String {
+    let remaining = remainingPercentage(for: window)
+    let percentageText = "\(remaining)%"
+
+    guard remaining < 100 else {
+        return percentageText
+    }
+
+    let countdown = formatCountdown(window.resetsAt)
+
+    if countdown == "just reset" {
+        return "\(percentageText) • just reset"
+    }
+
+    return "\(percentageText) • resets in \(countdown)"
+}
+
 func displayWindowLabel(for window: UsageWindow) -> String {
     let label = window.label.lowercased()
 
