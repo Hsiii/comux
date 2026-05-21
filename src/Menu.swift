@@ -1,14 +1,6 @@
 import AppKit
 import SwiftUI
 
-private struct ViewHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private struct ScrollIndicatorConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -55,7 +47,6 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @Binding var isManagingAccounts: Bool
-    @State private var measuredContentHeight: CGFloat = 88
 
     private let maxPanelHeight: CGFloat = 620
     private let minPanelHeight: CGFloat = 88
@@ -68,19 +59,10 @@ struct SlimDashboardPanelView: View {
             ScrollView {
                 self.panelContent
             }
-            .frame(height: self.panelHeight)
             .scrollBounceBehavior(.basedOnSize)
             .usesSubtleAppKitScrollIndicators()
-        }
-        .overlay(alignment: .topLeading) {
-            self.panelContent
-                .fixedSize(horizontal: false, vertical: true)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .opacity(0.001)
-        }
-        .onPreferenceChange(ViewHeightKey.self) { height in
-            self.measuredContentHeight = max(height, self.minPanelHeight)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: self.minPanelHeight, maxHeight: self.maxPanelHeight, alignment: .top)
         }
         .preferredColorScheme(.dark)
         .task {
@@ -121,16 +103,6 @@ struct SlimDashboardPanelView: View {
             }
         }
         .padding(16)
-        .background {
-            GeometryReader { geometry in
-                Color.clear
-                    .preference(key: ViewHeightKey.self, value: geometry.size.height)
-            }
-        }
-    }
-
-    private var panelHeight: CGFloat {
-        min(max(self.measuredContentHeight, self.minPanelHeight), self.maxPanelHeight)
     }
 }
 
