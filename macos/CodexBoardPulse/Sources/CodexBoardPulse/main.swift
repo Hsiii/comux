@@ -1347,12 +1347,25 @@ struct AccountManagerOverlayView: View {
 
                                 Spacer()
 
-                                Button("Remove") {
-                                    self.pendingRemoval = account
+                                Button(self.pendingRemoval?.id == account.id ? "Confirm" : "Remove") {
+                                    if self.pendingRemoval?.id == account.id {
+                                        try? coordinator.removeAccount(account)
+                                        nicknameStore.removeNickname(for: account)
+                                        self.draftNicknames.removeValue(forKey: account.id)
+                                        self.editingAccountID = nil
+                                        self.focusedAccountID = nil
+                                        self.pendingRemoval = nil
+                                    } else {
+                                        self.pendingRemoval = account
+                                    }
                                 }
                                 .buttonStyle(.borderless)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(coordinator.isRemovable(account) ? .red : .secondary)
+                                .foregroundStyle(
+                                    coordinator.isRemovable(account)
+                                        ? (self.pendingRemoval?.id == account.id ? .red : .secondary)
+                                        : .secondary
+                                )
                                 .disabled(!coordinator.isRemovable(account))
                             }
                         }
@@ -1386,33 +1399,12 @@ struct AccountManagerOverlayView: View {
         .onTapGesture {
             self.editingAccountID = nil
             self.focusedAccountID = nil
+            self.pendingRemoval = nil
         }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(Color.white.opacity(0.12))
-        }
-        .alert("Remove account?", isPresented: removalAlertPresented) {
-            Button("Remove", role: .destructive) {
-                guard let account = self.pendingRemoval else {
-                    return
-                }
-
-                try? coordinator.removeAccount(account)
-                nicknameStore.removeNickname(for: account)
-                self.draftNicknames.removeValue(forKey: account.id)
-                self.editingAccountID = nil
-                self.focusedAccountID = nil
-                self.pendingRemoval = nil
-            }
-
-            Button("Cancel", role: .cancel) {
-                self.pendingRemoval = nil
-            }
-        } message: {
-            if let pendingRemoval {
-                Text(pendingRemoval.email)
-            }
         }
         .onChange(of: coordinator.cache.accounts.map(\.id)) { _, accountIDs in
             self.draftNicknames = self.draftNicknames.filter { accountIDs.contains($0.key) }
@@ -1426,17 +1418,6 @@ struct AccountManagerOverlayView: View {
                 self.editingAccountID = nil
             }
         }
-    }
-
-    private var removalAlertPresented: Binding<Bool> {
-        Binding(
-            get: { self.pendingRemoval != nil },
-            set: { isPresented in
-                if !isPresented {
-                    self.pendingRemoval = nil
-                }
-            }
-        )
     }
 
     private func displayName(for account: AccountSnapshot) -> String {
