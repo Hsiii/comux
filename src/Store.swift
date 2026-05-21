@@ -142,35 +142,81 @@ final class NicknameStore: ObservableObject {
         UserDefaults.standard.set(nicknames, forKey: self.defaultsKey)
     }
 
-    private func storageKey(for account: AccountSnapshot) -> String {
+    private func normalizedEmail(for account: AccountSnapshot) -> String {
         let normalizedEmail = account.email
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
 
+        return normalizedEmail
+    }
+
+    private func preferredStorageKey(for account: AccountSnapshot) -> String {
+        let canonicalIdentity = canonicalAccountIdentity(for: account)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !canonicalIdentity.isEmpty, !canonicalIdentity.hasPrefix("::") {
+            return canonicalIdentity
+        }
+
+        let normalizedEmail = self.normalizedEmail(for: account)
         return normalizedEmail.isEmpty ? account.accountId : normalizedEmail
     }
 
+    private func legacyStorageKeys(for account: AccountSnapshot) -> [String] {
+        let baseAccountId = account.accountId
+            .split(separator: "::", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? account.accountId
+
+        return [
+            self.preferredStorageKey(for: account),
+            self.normalizedEmail(for: account),
+            account.accountId,
+            baseAccountId
+        ]
+        .filter { !$0.isEmpty }
+        .reduce(into: [String]()) { keys, key in
+            if !keys.contains(key) {
+                keys.append(key)
+            }
+        }
+    }
+
+    private func resolvedNickname(for account: AccountSnapshot) -> String {
+        for key in self.legacyStorageKeys(for: account) {
+            let nickname = self.nicknames[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            if !nickname.isEmpty {
+                return nickname
+            }
+        }
+
+        return ""
+    }
+
     func displayName(for account: AccountSnapshot) -> String {
-        let nickname = self.nicknames[self.storageKey(for: account)]?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let nickname = self.resolvedNickname(for: account)
         return nickname.isEmpty ? account.label : nickname
     }
 
     func nickname(for account: AccountSnapshot) -> String {
-        self.nicknames[self.storageKey(for: account)] ?? ""
+        self.resolvedNickname(for: account)
     }
 
     func saveNicknames(_ values: [String: String], for accounts: [AccountSnapshot]) {
         var nextNicknames = self.loadNicknames()
 
         for account in accounts {
-            let key = self.storageKey(for: account)
+            let keys = self.legacyStorageKeys(for: account)
+            let preferredKey = self.preferredStorageKey(for: account)
             let trimmed = values[account.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-            if trimmed.isEmpty {
+            for key in keys {
                 nextNicknames.removeValue(forKey: key)
-            } else {
-                nextNicknames[key] = trimmed
+            }
+
+            if !trimmed.isEmpty {
+                nextNicknames[preferredKey] = trimmed
             }
         }
 
@@ -178,9 +224,12 @@ final class NicknameStore: ObservableObject {
     }
 
     func removeNickname(for account: AccountSnapshot) {
-        let key = self.storageKey(for: account)
         var nextNicknames = self.loadNicknames()
-        nextNicknames.removeValue(forKey: key)
+
+        for key in self.legacyStorageKeys(for: account) {
+            nextNicknames.removeValue(forKey: key)
+        }
+
         self.persistNicknames(nextNicknames)
     }
 }
