@@ -1,16 +1,24 @@
-<p align="center">
-  <img src="assets/app_icon.png" alt="CodexMux logo" width="160" />
-</p>
+<div align="center">
+  <img src="assets/logo.png" alt="CodexMux logo" width="160" />
 
-<h1 align="center">CodexMux</h1>
+<h1>CodexMux</h1>
 
-<p align="center">A macOS menu bar app to track and sort your Codex account limits at a glance.</p>
+A macOS menu bar app to track and sort your Codex account limits at a glance.
+
+<img src="assets/demo.png" alt="CodexMux demo" height="480" />
+</div>
+
+## Why
+Codex usage is easy to lose track of when you work across personal and team
+accounts, multiple workspaces, or different reset windows. CodexMux turns that
+into one local control panel so you do not have to keep checking each account
+manually.
 
 ## Features
 
 - Reads Codex sessions from `~/.codex/auth.json`
-- Automatically discovers and tracks accounts
-- Ranks accounts by usage pressure and nearest reset
+- Automatically tracks and caches account usage and reset times
+- Arranges accounts by usage pressure and nearest reset
 - Supports nicknames to keep email addresses off-screen
 
 ## Install
@@ -34,14 +42,4 @@ Build the native macOS app bundle:
 ```bash
 ./scripts/build-app.sh
 open CodexMux.app
-```
-
-`scripts/build-app.sh` generates a native macOS app bundle, refreshes the repo-root `CodexMux.app`, and uses `assets/CodexMux.icns` as the final app icon. If that `.icns` file is missing, it is regenerated from `assets/app_icon.png`.
-
-## Packaging
-
-Build a Homebrew release archive and cask:
-
-```bash
-./scripts/package-homebrew.sh --version 1.0.0 --repo YOUR_GITHUB_OWNER/CodexBoard
 ```
