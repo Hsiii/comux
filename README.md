@@ -26,6 +26,17 @@ cd /Users/hsi/Documents/Projects/Personal/CodexBoard
 swift run CodexMux
 ```
 
+## Build a Finder-openable app bundle
+
+```bash
+cd /Users/hsi/Documents/Projects/Personal/CodexBoard
+./scripts/build-app.sh
+open .build/apple/CodexMux.app
+```
+
+The packaging script assembles a lightweight `.app` bundle around the SwiftPM
+binary so LaunchServices can open it like a normal macOS menu bar app.
+
 ## Extra accounts
 
 1. Create `~/.codexmux/accounts.json`.
