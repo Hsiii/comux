@@ -1,32 +1,84 @@
 # CodexMux
 
-CodexMux is a native macOS menu bar utility for tracking Codex usage across
-multiple accounts.
+CodexMux is a native macOS menu bar app for people who use Codex across more
+than one account or workspace and want one place to see which account still has
+the best headroom.
 
-## What it does
+Instead of checking usage windows one account at a time, CodexMux syncs them
+into one local dashboard, keeps short history, and surfaces the accounts that
+need attention first.
 
-- reads the current system account automatically from `~/.codex/auth.json`
-- fetches extra accounts independently with per-account ChatGPT cookies
-- normalizes weekly and rolling 5-hour usage into one local cache
-- shows a compact native dashboard directly from the menu bar app
-- stores snapshots in `~/.codexmux/cache.json`
+## Why it is useful
 
-## Architecture
+- The current Codex account is picked up automatically from your local Codex
+  session.
+- Extra ChatGPT/Codex accounts can be added with their own cookies.
+- Weekly and rolling 5-hour limits are normalized into the same view.
+- The menu sorts accounts by urgency, so the accounts under the most pressure
+  rise to the top.
+- Everything is cached locally, so the UI reads from disk instead of waiting on
+  network requests every time you open it.
 
-1. The Swift app reads the ambient Codex bearer token from `~/.codex/auth.json`.
-2. It refreshes usage from `https://chatgpt.com/backend-api/wham/usage`.
-3. Optional extra accounts are fetched with their own ChatGPT cookies.
-4. All snapshots are normalized into the same account schema.
-5. The menu bar dashboard reads from the local cache file only.
+## How syncing works
 
-## Run the app
+CodexMux combines two sync paths:
+
+1. `~/.codex/auth.json` is read for the current ambient Codex session.
+2. Optional extra accounts are loaded from `~/.codexmux/accounts.json`.
+
+For each account, the app:
+
+- gets an access token
+- fetches usage from `https://chatgpt.com/backend-api/wham/usage`
+- resolves the workspace name when available
+- converts the response into one shared local schema
+- writes the merged result to `~/.codexmux/cache.json`
+
+The app UI reads from that cache file only.
+
+## How accounts are merged
+
+CodexMux treats an account identity as:
+
+- `email + plan`
+
+That means repeated syncs update the same logical account even if the raw
+snapshot key changes underneath. The saved history is appended only when usage
+actually changes, and the app keeps the latest 12 history points per account.
+
+This matters for first-time users because it means:
+
+- your current system account and your configured extra accounts end up in one
+  stable list
+- repeated refreshes do not create duplicate dashboard cards
+- nicknames stay useful because the same person/account keeps collapsing into
+  the same entry
+
+## How sorting works
+
+The menu is not alphabetical first.
+
+Accounts are ordered by:
+
+1. weekly usage pressure versus where the account is expected to be in its reset
+   cycle
+2. nearest weekly reset time
+3. display name
+
+In practice, this pushes the accounts that are most ahead of their expected
+weekly burn to the top, which makes the dashboard useful as a routing tool, not
+just a passive meter board.
+
+## First run
+
+Run the app directly:
 
 ```bash
 cd /Users/hsi/Documents/Projects/Personal/CodexBoard
 swift run CodexMux
 ```
 
-## Build a Finder-openable app bundle
+Or build a normal `.app` bundle:
 
 ```bash
 cd /Users/hsi/Documents/Projects/Personal/CodexBoard
@@ -34,17 +86,58 @@ cd /Users/hsi/Documents/Projects/Personal/CodexBoard
 open .build/apple/CodexMux.app
 ```
 
-The packaging script assembles a lightweight `.app` bundle around the SwiftPM
-binary so LaunchServices can open it like a normal macOS menu bar app.
+On first launch, CodexMux will create:
 
-## Extra accounts
+- `~/.codexmux/cache.json`
 
-1. Create `~/.codexmux/accounts.json`.
-2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [Model.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/src/Model.swift).
-3. Run the app.
+If you do nothing else, the app will still show the current account from your
+local Codex session.
 
-## Notes
+## Adding extra accounts
 
-- The current system account needs no cookie config.
+Create `~/.codexmux/accounts.json` and add one object per extra account.
+
+Minimal example:
+
+```json
+{
+  "pollIntervalSeconds": 300,
+  "accounts": [
+    {
+      "id": "work-pro",
+      "label": "Work Pro",
+      "email": "me@company.com",
+      "workspaceLabel": "Company",
+      "plan": "Codex Pro",
+      "color": "#7cc6ff",
+      "chatGPTCookie": "YOUR_CHATGPT_COOKIE"
+    }
+  ]
+}
+```
+
+Supported fields come from [`AccountConfig`](./src/Model.swift):
+
+- `id`: stable local ID for that configured account
+- `label`: default display label before nicknames
+- `email`: used as part of merge identity
+- `workspaceLabel`: fallback workspace name if the API does not return one
+- `plan`: used for display and merge identity
+- `color`: card accent color
+- `chatGPTCookie`: required for extra accounts
+- `source`, `sessionEndpoint`, `usageEndpoint`, `accountHeader`: optional
+
+Use `accountHeader` when a specific ChatGPT account/workspace header is needed.
+
+## Local data and customization
+
+- Cache is stored at `~/.codexmux/cache.json`.
+- Extra account config is stored at `~/.codexmux/accounts.json`.
 - Nicknames are stored locally in `UserDefaults`.
-- The app creates an empty local cache at `~/.codexmux/cache.json` on first run.
+- The ambient system account does not need cookie configuration.
+
+## Product model in one sentence
+
+CodexMux is useful because it turns scattered, per-account Codex usage checks
+into one ranked local control panel, so you can decide where to work next
+without manually opening and comparing every account.
