@@ -22,15 +22,14 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.autosaveName = "CodexMuxStatusItem"
         statusItem.isVisible = true
 
         if let button = statusItem.button {
-            button.title = "CM"
-            button.image = nil
-            button.imagePosition = .noImage
-            button.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
+            button.title = ""
+            button.image = Self.codexMenuBarIcon
+            button.imagePosition = .imageOnly
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
