@@ -1382,6 +1382,11 @@ struct AccountManagerOverlayView: View {
         .padding(20)
         .frame(width: 360, height: 460)
         .background(.ultraThinMaterial)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            self.editingAccountID = nil
+            self.focusedAccountID = nil
+        }
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
@@ -1414,6 +1419,11 @@ struct AccountManagerOverlayView: View {
 
             for account in coordinator.cache.accounts where self.draftNicknames[account.id] == nil {
                 self.draftNicknames[account.id] = nicknameStore.nickname(for: account)
+            }
+        }
+        .onChange(of: self.focusedAccountID) { _, focusedAccountID in
+            if focusedAccountID == nil {
+                self.editingAccountID = nil
             }
         }
     }
