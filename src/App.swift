@@ -2,6 +2,14 @@ import AppKit
 import SwiftUI
 
 @MainActor
+final class PopoverHostingController<Content: View>: NSHostingController<Content> {
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        self.preferredContentSize = self.view.fittingSize
+    }
+}
+
+@MainActor
 final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     private let coordinator = PulseCoordinator()
     private let popover = NSPopover()
@@ -39,7 +47,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installPopover() {
-        let hostingController = NSHostingController(rootView: PulseMenuView(coordinator: self.coordinator))
+        let hostingController = PopoverHostingController(rootView: PulseMenuView(coordinator: self.coordinator))
         self.popover.contentViewController = hostingController
         self.popover.behavior = .transient
         self.popover.animates = true
@@ -55,6 +63,10 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         if self.popover.isShown {
             self.popover.performClose(sender)
             return
+        }
+
+        if let controller = self.popover.contentViewController {
+            self.popover.contentSize = controller.preferredContentSize
         }
 
         self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
