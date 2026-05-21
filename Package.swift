@@ -21,6 +21,7 @@ let package = Package(
                 "Card.swift",
                 "Manage.swift",
                 "Menu.swift",
+                "Resources.swift",
             ],
             resources: [
                 .process("../assets")
