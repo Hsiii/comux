@@ -291,9 +291,12 @@ final class PulseCoordinator: ObservableObject {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
         let pace = self.projectPace(weeklyWindow: windows.weeklyWindow, rollingWindow: windows.rollingWindow)
-        let resolvedWorkspaceLabel = self.resolveWorkspaceLabel(
+        let resolvedWorkspaceLabel = normalizedWorkspaceLabel(
+            self.resolveWorkspaceLabel(
             payload: payload,
             fallback: workspaceLabel
+            ),
+            plan: plan
         )
         let snapshotKey = buildSnapshotKey(
             accountId: accountID,
@@ -433,7 +436,7 @@ final class PulseCoordinator: ObservableObject {
             return organizationTitle
         }
 
-        return ""
+        return "Personal"
     }
 
     private func normalizeWorkspaceAccountID(_ value: String?) -> String? {

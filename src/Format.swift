@@ -100,6 +100,25 @@ func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
     ].joined(separator: "::")
 }
 
+func isPersonalPlan(_ plan: String) -> Bool {
+    let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return normalized.contains("free") || normalized.contains("personal")
+}
+
+func normalizedWorkspaceLabel(_ workspaceLabel: String, plan: String) -> String {
+    let trimmed = workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if trimmed.caseInsensitiveCompare("free") == .orderedSame {
+        return "Personal"
+    }
+
+    if trimmed.isEmpty && isPersonalPlan(plan) {
+        return "Personal"
+    }
+
+    return trimmed
+}
+
 func tierLabel(for plan: String) -> String {
     let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -107,8 +126,8 @@ func tierLabel(for plan: String) -> String {
         return "Team"
     }
 
-    if normalized.contains("free") {
-        return "Free"
+    if isPersonalPlan(plan) {
+        return "Personal"
     }
 
     if normalized.contains("pro") {
@@ -124,7 +143,7 @@ func tierLabel(for plan: String) -> String {
 
 func accountTierText(for account: AccountSnapshot) -> String {
     let tier = tierLabel(for: account.plan)
-    let workspace = account.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+    let workspace = normalizedWorkspaceLabel(account.workspaceLabel, plan: account.plan)
 
     if workspace == "Ambient ~/.codex session" {
         return tier
