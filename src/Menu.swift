@@ -126,13 +126,27 @@ struct SlimDashboardPanelView: View {
             }
 
             HStack(spacing: 8) {
-                Button("Manage Accounts") {
-                    isManagingAccounts = true
+                Menu {
+                    Button("Manage Accounts") {
+                        isManagingAccounts = true
+                    }
+
+                    Divider()
+
+                    Toggle("Open at Login", isOn: Binding(
+                        get: { launchAtLoginStore.opensAtLogin },
+                        set: { launchAtLoginStore.setEnabled($0) }
+                    ))
+                    .controlSize(.small)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .focusable(false)
-                .buttonStyle(.plain)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .menuStyle(.borderlessButton)
 
                 Spacer()
 
@@ -143,22 +157,6 @@ struct SlimDashboardPanelView: View {
                 .controlSize(.small)
             }
             .padding(.leading, 14)
-
-            Toggle("Open at Login", isOn: Binding(
-                get: { launchAtLoginStore.opensAtLogin },
-                set: { launchAtLoginStore.setEnabled($0) }
-            ))
-            .toggleStyle(.switch)
-            .font(.caption.weight(.semibold))
-            .padding(.leading, 14)
-
-            if let errorMessage = launchAtLoginStore.errorMessage {
-                Text(errorMessage)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 14)
-            }
         }
         .padding(16)
     }
@@ -186,6 +184,7 @@ struct PulseMenuView: View {
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var isManagingAccounts = false
     @State private var dashboardContentHeight: CGFloat = 620
+    @State private var isShowingLaunchAtLoginError = false
 
     var body: some View {
         ZStack {
@@ -218,6 +217,16 @@ struct PulseMenuView: View {
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
         .animation(.easeOut(duration: 0.16), value: self.isManagingAccounts)
+        .onChange(of: self.launchAtLoginStore.errorMessage) { _, errorMessage in
+            self.isShowingLaunchAtLoginError = errorMessage != nil
+        }
+        .alert("Couldn’t Update Login Item", isPresented: self.$isShowingLaunchAtLoginError) {
+            Button("OK") {
+                self.launchAtLoginStore.clearError()
+            }
+        } message: {
+            Text(self.launchAtLoginStore.errorMessage ?? "")
+        }
     }
 
     private var panelHeight: CGFloat {

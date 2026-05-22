@@ -30,6 +30,10 @@ final class LaunchAtLoginStore: ObservableObject {
         }
     }
 
+    func clearError() {
+        self.errorMessage = nil
+    }
+
     private static var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled
     }
