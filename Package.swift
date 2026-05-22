@@ -21,6 +21,7 @@ let package = Package(
                 "Card.swift",
                 "Manage.swift",
                 "Menu.swift",
+                "LaunchAtLogin.swift",
                 "Resources.swift",
                 "main.swift",
             ],

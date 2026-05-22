@@ -20,6 +20,7 @@ manually.
 - Automatically tracks and caches account usage and reset times
 - Arranges accounts by usage pressure and nearest reset
 - Supports nicknames to keep email addresses off-screen
+- Lets you enable "Open at Login" from the app on macOS
 
 ## Install
 

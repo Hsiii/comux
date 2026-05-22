@@ -82,6 +82,7 @@ extension View {
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
+    @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var isManagingAccounts: Bool
     @Binding var measuredContentHeight: CGFloat
 
@@ -142,6 +143,22 @@ struct SlimDashboardPanelView: View {
                 .controlSize(.small)
             }
             .padding(.leading, 14)
+
+            Toggle("Open at Login", isOn: Binding(
+                get: { launchAtLoginStore.opensAtLogin },
+                set: { launchAtLoginStore.setEnabled($0) }
+            ))
+            .toggleStyle(.switch)
+            .font(.caption.weight(.semibold))
+            .padding(.leading, 14)
+
+            if let errorMessage = launchAtLoginStore.errorMessage {
+                Text(errorMessage)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 14)
+            }
         }
         .padding(16)
     }
@@ -166,6 +183,7 @@ struct SlimDashboardPanelView: View {
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
+    @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var isManagingAccounts = false
     @State private var dashboardContentHeight: CGFloat = 620
 
@@ -174,6 +192,7 @@ struct PulseMenuView: View {
             SlimDashboardPanelView(
                 coordinator: coordinator,
                 nicknameStore: nicknameStore,
+                launchAtLoginStore: launchAtLoginStore,
                 isManagingAccounts: self.$isManagingAccounts,
                 measuredContentHeight: self.$dashboardContentHeight
             )
