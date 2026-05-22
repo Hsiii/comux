@@ -109,6 +109,8 @@ if [[ -z "$MOUNT_DIR" ]]; then
     exit 1
 fi
 
+touch "$MOUNT_DIR/.DS_Store"
+
 cleanup_mount() {
     if [[ -d "$MOUNT_DIR" ]]; then
         hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || hdiutil detach "$MOUNT_DIR" -force -quiet >/dev/null 2>&1 || true
