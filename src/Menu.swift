@@ -369,12 +369,13 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
+    let panelHeight: CGFloat
     let onEditDisplayNameRequested: (AccountSnapshot) -> Void
     let onRemoveRequested: (AccountSnapshot) -> Void
     @State private var hoveredControlRowID: String?
 
     private var needsScrollView: Bool {
-        self.measuredContentHeight > maxPanelHeight
+        self.measuredContentHeight > self.panelHeight
     }
 
     var body: some View {
@@ -556,7 +557,7 @@ struct PulseMenuView: View {
     let onPanelHeightChange: (CGFloat) -> Void
     @StateObject private var nicknameStore = NicknameStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
-    @State private var dashboardContentHeight: CGFloat = 620
+    @State private var dashboardContentHeight: CGFloat = 0
     @State private var activeDialog: AccountDialogRoute?
     @State private var draftDisplayName = ""
 
@@ -567,6 +568,7 @@ struct PulseMenuView: View {
                 nicknameStore: nicknameStore,
                 launchAtLoginStore: launchAtLoginStore,
                 measuredContentHeight: self.$dashboardContentHeight,
+                panelHeight: self.panelHeight,
                 onEditDisplayNameRequested: { account in
                     self.promptForDisplayName(account)
                 },
@@ -703,9 +705,13 @@ struct PulseMenuView: View {
     }
 
     private var panelHeight: CGFloat {
-        min(
+        let contentHeight = self.dashboardContentHeight > 0
+            ? self.dashboardContentHeight
+            : self.estimatedPanelHeight
+
+        return min(
             max(
-                max(self.dashboardContentHeight, self.estimatedPanelHeight),
+                contentHeight,
                 minPanelHeight
             ),
             maxPanelHeight
