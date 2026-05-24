@@ -2,26 +2,14 @@ import AppKit
 import SwiftUI
 
 private let statusPanelGap: CGFloat = 6
+private let statusPanelWidth: CGFloat = 360
 
 @MainActor
 final class PopoverHostingController<Content: View>: NSHostingController<Content> {
-    var onPreferredContentSizeChange: ((NSSize) -> Void)?
-
     override func loadView() {
         super.loadView()
         self.view.wantsLayer = true
         self.view.layer?.backgroundColor = NSColor.clear.cgColor
-    }
-
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        let nextSize = self.view.fittingSize
-        guard self.preferredContentSize != nextSize else {
-            return
-        }
-
-        self.preferredContentSize = nextSize
-        self.onPreferredContentSizeChange?(nextSize)
     }
 }
 
@@ -78,9 +66,13 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installPopover() {
-        let hostingController = PopoverHostingController(rootView: PulseMenuView(coordinator: self.coordinator))
+        let hostingController = PopoverHostingController(
+            rootView: PulseMenuView(coordinator: self.coordinator) { [weak self] height in
+                self?.updatePanelHeight(height)
+            }
+        )
         let panel = StatusPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: statusPanelWidth, height: 620),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -95,13 +87,6 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         panel.collectionBehavior = [.transient, .ignoresCycle]
         panel.onCloseRequest = { [weak self] in
             self?.closePanel()
-        }
-        hostingController.onPreferredContentSizeChange = { [weak self, weak panel] size in
-            guard let self, let panel else {
-                return
-            }
-
-            self.updatePanelSize(size, for: panel)
         }
         self.panel = panel
     }
@@ -119,11 +104,6 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible {
             self.closePanel()
             return
-        }
-
-        if let controller = panel.contentViewController {
-            controller.view.layoutSubtreeIfNeeded()
-            self.updatePanelSize(controller.preferredContentSize, for: panel)
         }
 
         self.positionPanel(relativeTo: button, panel: panel)
@@ -152,11 +132,12 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         panel.setFrameOrigin(NSPoint(x: originX, y: originY))
     }
 
-    private func updatePanelSize(_ size: NSSize, for panel: NSPanel) {
-        guard size.width > 0, size.height > 0 else {
+    private func updatePanelHeight(_ height: CGFloat) {
+        guard height > 0, let panel = self.panel else {
             return
         }
 
+        let size = NSSize(width: statusPanelWidth, height: height)
         if panel.contentView?.frame.size != size {
             panel.setContentSize(size)
         }

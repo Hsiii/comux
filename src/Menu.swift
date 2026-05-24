@@ -543,6 +543,7 @@ struct SlimDashboardPanelView: View {
 
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
+    let onPanelHeightChange: (CGFloat) -> Void
     @StateObject private var nicknameStore = NicknameStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 620
@@ -611,6 +612,12 @@ struct PulseMenuView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
         .animation(.easeOut(duration: 0.14), value: self.activeDialog?.id)
+        .onAppear {
+            self.onPanelHeightChange(self.panelHeight)
+        }
+        .onChange(of: self.panelHeight) { _, newHeight in
+            self.onPanelHeightChange(newHeight)
+        }
         .alert("Couldn’t Update Login Item", isPresented: self.isShowingLaunchAtLoginError) {
             Button("OK") {
                 self.launchAtLoginStore.clearError()
