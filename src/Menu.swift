@@ -315,7 +315,9 @@ struct SlimDashboardPanelView: View {
 
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
-            self.syncStatusRow
+            if coordinator.syncStatus.phase == .syncing {
+                self.syncStatusRow
+            }
 
             self.accountCardStack
 
@@ -372,11 +374,7 @@ struct SlimDashboardPanelView: View {
     private var syncStatusText: String {
         switch coordinator.syncStatus.phase {
         case .idle:
-            if let generatedAt = ISO8601DateFormatter().date(from: coordinator.cache.meta.generatedAt) {
-                return "Updated \(formatRelative(generatedAt.ISO8601Format()))"
-            }
-
-            return "Usage synced"
+            return ""
         case .syncing:
             let completedCount = coordinator.syncStatus.completedCount
             let totalCount = max(coordinator.syncStatus.totalCount, completedCount)
@@ -613,9 +611,11 @@ struct PulseMenuView: View {
         let cardsHeight = CGFloat(accountCount) * AccountCardView.height
         let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
         let controlSectionHeight = controlHeight * 2 + controlDividerSpacing * 3 + controlSectionBottomPadding + 1
+        let syncStatusHeight = self.coordinator.syncStatus.phase == .syncing
+            ? (syncStatusTopPadding + syncStatusRowHeight + 16)
+            : 0
         let contentHeight =
-            syncStatusTopPadding +
-            syncStatusRowHeight +
+            syncStatusHeight +
             cardBlockEdgePadding +
             cardsHeight +
             cardGapsHeight +
