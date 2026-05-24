@@ -96,7 +96,7 @@ private struct ControlRowButtonStyle: ButtonStyle {
             .background {
                 RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
                     .fill(self.backgroundColor(isPressed: configuration.isPressed))
-                    .padding(controlHoverInset)
+                    .padding(.horizontal, controlHoverInset)
             }
             .foregroundStyle(self.foregroundColor)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
