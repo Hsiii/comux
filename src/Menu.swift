@@ -14,8 +14,10 @@ private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
-private let controlSectionHorizontalInset: CGFloat = 0
-private let controlTextLeadingInset: CGFloat = 16
+private let cardBlockEdgePadding: CGFloat = 16
+private let controlSectionHorizontalInset: CGFloat = 12
+private let controlSectionBottomPadding: CGFloat = 12
+private let controlTextLeadingInset: CGFloat = 18
 private let controlHoverCornerRadius: CGFloat = 8
 
 private var maxPanelHeight: CGFloat {
@@ -119,7 +121,6 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
-    private let panelPadding: CGFloat = 16
 
     var body: some View {
         ZStack {
@@ -153,6 +154,14 @@ struct SlimDashboardPanelView: View {
 
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
+            self.accountCardStack
+
+            self.controlStrip
+        }
+    }
+
+    private var accountCardStack: some View {
+        VStack(alignment: .leading, spacing: 16) {
             ForEach(sortedAccounts) { account in
                 AccountCardView(
                     account: account,
@@ -166,10 +175,9 @@ struct SlimDashboardPanelView: View {
                     }
                 )
             }
-
-            self.controlStrip
         }
-        .padding(panelPadding)
+        .padding(.top, cardBlockEdgePadding)
+        .padding(.bottom, cardBlockEdgePadding)
     }
 
     private var launchAtLoginTitle: String {
@@ -195,6 +203,7 @@ struct SlimDashboardPanelView: View {
             }
         }
         .padding(.horizontal, controlSectionHorizontalInset)
+        .padding(.bottom, controlSectionBottomPadding)
     }
 
     private func controlRow(
