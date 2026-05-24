@@ -173,8 +173,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
-    @State private var editingAccount: AccountSnapshot?
-    @State private var draftDisplayName = ""
+    let onEditDisplayNameRequested: (AccountSnapshot) -> Void
 
     var body: some View {
         ZStack {
@@ -195,18 +194,6 @@ struct SlimDashboardPanelView: View {
         }
         .preferredColorScheme(.dark)
         .background(InitialFirstResponderResetter())
-        .sheet(item: self.$editingAccount) { account in
-            EditDisplayNameSheet(
-                account: account,
-                draftName: self.$draftDisplayName,
-                onCancel: {
-                    self.cancelDisplayNameEditing()
-                },
-                onSave: {
-                    self.saveDisplayName(for: account)
-                }
-            )
-        }
         .task {
             await coordinator.syncNow()
         }
@@ -311,21 +298,7 @@ struct SlimDashboardPanelView: View {
     }
 
     private func promptForDisplayName(_ account: AccountSnapshot) {
-        self.draftDisplayName = nicknameStore.nickname(for: account)
-        self.editingAccount = account
-    }
-
-    private func cancelDisplayNameEditing() {
-        self.editingAccount = nil
-        self.draftDisplayName = ""
-    }
-
-    private func saveDisplayName(for account: AccountSnapshot) {
-        nicknameStore.saveNicknames(
-            [account.id: self.draftDisplayName],
-            for: [account]
-        )
-        self.cancelDisplayNameEditing()
+        self.onEditDisplayNameRequested(account)
     }
 
     private func confirmRemoval(of account: AccountSnapshot) {
@@ -364,18 +337,35 @@ struct PulseMenuView: View {
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 620
     @State private var isShowingLaunchAtLoginError = false
+    @State private var editingAccount: AccountSnapshot?
+    @State private var draftDisplayName = ""
 
     var body: some View {
         SlimDashboardPanelView(
             coordinator: coordinator,
             nicknameStore: nicknameStore,
             launchAtLoginStore: launchAtLoginStore,
-            measuredContentHeight: self.$dashboardContentHeight
+            measuredContentHeight: self.$dashboardContentHeight,
+            onEditDisplayNameRequested: { account in
+                self.promptForDisplayName(account)
+            }
         )
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
         .onChange(of: self.launchAtLoginStore.errorMessage) { _, errorMessage in
             self.isShowingLaunchAtLoginError = errorMessage != nil
+        }
+        .sheet(item: self.$editingAccount) { account in
+            EditDisplayNameSheet(
+                account: account,
+                draftName: self.$draftDisplayName,
+                onCancel: {
+                    self.cancelDisplayNameEditing()
+                },
+                onSave: {
+                    self.saveDisplayName(for: account)
+                }
+            )
         }
         .alert("Couldn’t Update Login Item", isPresented: self.$isShowingLaunchAtLoginError) {
             Button("OK") {
@@ -384,6 +374,24 @@ struct PulseMenuView: View {
         } message: {
             Text(self.launchAtLoginStore.errorMessage ?? "")
         }
+    }
+
+    private func promptForDisplayName(_ account: AccountSnapshot) {
+        self.draftDisplayName = self.nicknameStore.nickname(for: account)
+        self.editingAccount = account
+    }
+
+    private func cancelDisplayNameEditing() {
+        self.editingAccount = nil
+        self.draftDisplayName = ""
+    }
+
+    private func saveDisplayName(for account: AccountSnapshot) {
+        self.nicknameStore.saveNicknames(
+            [account.id: self.draftDisplayName],
+            for: [account]
+        )
+        self.cancelDisplayNameEditing()
     }
 
     private var panelHeight: CGFloat {
