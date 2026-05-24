@@ -180,7 +180,7 @@ struct SlimDashboardPanelView: View {
                     .opacity(showsCheckmark ? 1 : 0)
 
                 Text(title)
-                    .font(.system(size: 12.5, weight: .medium))
+                    .font(.system(size: 12.5, weight: .regular))
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
             }
