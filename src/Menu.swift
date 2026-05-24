@@ -14,7 +14,6 @@ private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
-private let controlHorizontalInset: CGFloat = 14
 private let controlDividerSpacing: CGFloat = 6
 
 private var maxPanelHeight: CGFloat {
@@ -157,7 +156,6 @@ struct SlimDashboardPanelView: View {
                 NSApp.terminate(nil)
             }
         }
-        .padding(.horizontal, controlHorizontalInset)
     }
 
     private func controlRow(_ title: String, action: @escaping () -> Void) -> some View {
