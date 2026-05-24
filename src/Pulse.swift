@@ -64,9 +64,7 @@ final class PulseCoordinator: ObservableObject {
             let config = self.loadConfig()
             var incomingSnapshots: [AccountSnapshot] = []
 
-            if let systemSnapshot = try await self.buildSystemSnapshotIfAvailable() {
-                incomingSnapshots.append(systemSnapshot)
-            }
+            incomingSnapshots.append(contentsOf: try await self.buildSystemSnapshotsIfAvailable())
 
             for account in config.accounts {
                 let snapshot = try await self.buildCookieSnapshot(for: account)
@@ -107,36 +105,86 @@ final class PulseCoordinator: ObservableObject {
         self.accountConfigStore.load()
     }
 
-    private func buildSystemSnapshotIfAvailable() async throws -> AccountSnapshot? {
+    private func buildSystemSnapshotsIfAvailable() async throws -> [AccountSnapshot] {
         guard let identity = try self.loadSystemIdentity() else {
-            return nil
+            return []
         }
 
-        let rawUsage = try await self.fetchUsagePayload(
+        let currentUsage = try await self.fetchUsagePayload(
             accessToken: identity.accessToken,
             cookieHeader: nil,
             usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
             accountHeader: nil
         )
-        let workspaceAccountID = (rawUsage["account_id"] as? String) ?? identity.accountId
-        let workspaceLabel = try await self.fetchWorkspaceLabel(
-            accessToken: identity.accessToken,
-            cookieHeader: nil,
-            workspaceAccountID: workspaceAccountID
-        ) ?? self.defaultWorkspaceLabel(for: identity, plan: rawUsage["plan_type"] as? String ?? identity.planType)
-
-        return try self.normalizeUsage(
-            rawUsage,
-            accountID: rawUsage["account_id"] as? String ?? identity.accountId ?? identity.subject ?? UUID().uuidString,
-            label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
-            email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
-            workspaceLabel: workspaceLabel,
-            plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
-            color: "#8cf5b0",
-            source: "live system auth",
-            isCurrentSystemAccount: true,
-            note: "Native Swift sync from local Codex auth."
+        let currentWorkspaceAccountID = self.normalizeWorkspaceAccountID(
+            (currentUsage["account_id"] as? String) ?? identity.accountId
         )
+        let workspaceItems = try await self.fetchWorkspaceItems(
+            accessToken: identity.accessToken,
+            cookieHeader: nil
+        )
+
+        if workspaceItems.isEmpty {
+            let workspaceLabel = self.resolveWorkspaceName(
+                currentUsage,
+                workspaceItem: nil,
+                identity: identity
+            )
+
+            return [
+                try self.normalizeUsage(
+                    currentUsage,
+                    accountID: currentUsage["account_id"] as? String ?? identity.accountId ?? identity.subject ?? UUID().uuidString,
+                    label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
+                    email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
+                    workspaceLabel: workspaceLabel,
+                    plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
+                    color: "#8cf5b0",
+                    source: "live system auth",
+                    isCurrentSystemAccount: true,
+                    note: "Native Swift sync from local Codex auth."
+                )
+            ]
+        }
+
+        var snapshots: [AccountSnapshot] = []
+
+        for workspaceItem in workspaceItems {
+            let workspaceAccountID = self.normalizeWorkspaceAccountID(workspaceItem.id)
+            let rawUsage: [String: Any]
+
+            if workspaceAccountID == currentWorkspaceAccountID {
+                rawUsage = currentUsage
+            } else {
+                rawUsage = try await self.fetchUsagePayload(
+                    accessToken: identity.accessToken,
+                    cookieHeader: nil,
+                    usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
+                    accountHeader: workspaceAccountID
+                )
+            }
+
+            snapshots.append(
+                try self.normalizeUsage(
+                    rawUsage,
+                    accountID: workspaceItem.id,
+                    label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
+                    email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
+                    workspaceLabel: self.resolveWorkspaceName(
+                        rawUsage,
+                        workspaceItem: workspaceItem,
+                        identity: identity
+                    ),
+                    plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
+                    color: "#8cf5b0",
+                    source: "live system auth",
+                    isCurrentSystemAccount: workspaceAccountID == currentWorkspaceAccountID,
+                    note: "Native Swift sync from local Codex auth."
+                )
+            )
+        }
+
+        return snapshots
     }
 
     private func buildCookieSnapshot(for account: AccountConfig) async throws -> AccountSnapshot {
@@ -265,11 +313,10 @@ final class PulseCoordinator: ObservableObject {
         return payload
     }
 
-    private func fetchWorkspaceLabel(
+    private func fetchWorkspaceItems(
         accessToken: String,
-        cookieHeader: String?,
-        workspaceAccountID: String?
-    ) async throws -> String? {
+        cookieHeader: String?
+    ) async throws -> [WorkspaceItem] {
         var request = URLRequest(url: URL(string: "https://chatgpt.com/backend-api/accounts")!)
         request.httpMethod = "GET"
         request.timeoutInterval = 20
@@ -281,28 +328,35 @@ final class PulseCoordinator: ObservableObject {
             request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
         }
 
-        if let workspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID) {
-            request.setValue(workspaceAccountID, forHTTPHeaderField: "ChatGPT-Account-Id")
-        }
-
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               (200..<300).contains(httpResponse.statusCode)
         else {
-            return nil
+            return []
         }
 
         let payload = try JSONDecoder().decode(WorkspaceIdentity.self, from: data)
-        let normalizedWorkspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID)
+        return payload.items
+    }
 
+    private func fetchWorkspaceLabel(
+        accessToken: String,
+        cookieHeader: String?,
+        workspaceAccountID: String?
+    ) async throws -> String? {
+        let normalizedWorkspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID)
+        let workspaceItems = try await self.fetchWorkspaceItems(
+            accessToken: accessToken,
+            cookieHeader: cookieHeader
+        )
         let matchingWorkspace: WorkspaceItem?
 
         if let normalizedWorkspaceAccountID {
-            matchingWorkspace = payload.items.first { item in
+            matchingWorkspace = workspaceItems.first { item in
                 self.normalizeWorkspaceAccountID(item.id) == normalizedWorkspaceAccountID
             }
         } else {
-            matchingWorkspace = payload.items.first
+            matchingWorkspace = workspaceItems.first
         }
 
         guard let matchingWorkspace else {
@@ -479,6 +533,26 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return "Personal"
+    }
+
+    private func resolveWorkspaceName(
+        _ payload: [String: Any],
+        workspaceItem: WorkspaceItem?,
+        identity: SystemAuthIdentity
+    ) -> String {
+        let fallbackName = workspaceItem?.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let payloadPlan = payload["plan_type"] as? String ?? identity.planType
+        let fallback = fallbackName.isEmpty
+            ? self.defaultWorkspaceLabel(for: identity, plan: payloadPlan)
+            : fallbackName
+
+        return normalizedWorkspaceLabel(
+            self.resolveWorkspaceLabel(
+                payload: payload,
+                fallback: fallback
+            ),
+            plan: self.displayPlan(payloadPlan)
+        )
     }
 
     private func normalizeWorkspaceAccountID(_ value: String?) -> String? {
