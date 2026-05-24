@@ -373,16 +373,26 @@ struct SlimDashboardPanelView: View {
     let onRemoveRequested: (AccountSnapshot) -> Void
     @State private var hoveredControlRowID: String?
 
+    private var needsScrollView: Bool {
+        self.measuredContentHeight > maxPanelHeight
+    }
+
     var body: some View {
         ZStack {
             Color.clear
                 .ignoresSafeArea()
 
-            ScrollView {
-                self.panelContent
+            Group {
+                if self.needsScrollView {
+                    ScrollView {
+                        self.panelContent
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .usesSubtleAppKitScrollIndicators()
+                } else {
+                    self.panelContent
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .usesSubtleAppKitScrollIndicators()
         }
         .onPreferenceChange(ViewHeightKey.self) { height in
             self.measuredContentHeight = max(height, minPanelHeight)
