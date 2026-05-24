@@ -400,27 +400,44 @@ struct PulseMenuView: View {
     @State private var draftDisplayName = ""
 
     var body: some View {
-        SlimDashboardPanelView(
-            coordinator: coordinator,
-            nicknameStore: nicknameStore,
-            launchAtLoginStore: launchAtLoginStore,
-            measuredContentHeight: self.$dashboardContentHeight,
-            onEditDisplayNameRequested: { account in
-                self.promptForDisplayName(account)
-            },
-            onRemoveRequested: { account in
-                self.promptForRemoval(account)
+        ZStack {
+            SlimDashboardPanelView(
+                coordinator: coordinator,
+                nicknameStore: nicknameStore,
+                launchAtLoginStore: launchAtLoginStore,
+                measuredContentHeight: self.$dashboardContentHeight,
+                onEditDisplayNameRequested: { account in
+                    self.promptForDisplayName(account)
+                },
+                onRemoveRequested: { account in
+                    self.promptForRemoval(account)
+                }
+            )
+
+            if let route = self.activeDialog {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+
+                self.accountDialog(for: route)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color(nsColor: .windowBackgroundColor))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
-        )
+        }
         .frame(width: panelWidth, height: self.panelHeight)
         .background(
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 .fill(Color(nsColor: .windowBackgroundColor))
         )
         .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
-        .sheet(item: self.$activeDialog) { route in
-            self.accountDialog(for: route)
-        }
+        .animation(.easeOut(duration: 0.14), value: self.activeDialog?.id)
         .alert("Couldn’t Update Login Item", isPresented: self.isShowingLaunchAtLoginError) {
             Button("OK") {
                 self.launchAtLoginStore.clearError()
