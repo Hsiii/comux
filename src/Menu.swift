@@ -15,7 +15,7 @@ private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
-private let controlSectionHorizontalInset: CGFloat = 4
+private let controlSectionHorizontalInset: CGFloat = 0
 private let controlStateColumnWidth: CGFloat = 8
 private let controlStateSpacing: CGFloat = 4
 
@@ -90,7 +90,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var isManagingAccounts: Bool
     @Binding var measuredContentHeight: CGFloat
-    private let panelPadding: CGFloat = 14
+    private let panelPadding: CGFloat = 12
 
     var body: some View {
         ZStack {
