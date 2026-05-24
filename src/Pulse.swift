@@ -3,8 +3,6 @@ import SwiftUI
 
 @MainActor
 final class PulseCoordinator: ObservableObject {
-    @Published var statusLine = "Idle"
-    @Published var lastSyncedAt: String?
     @Published var cache = CachePayload(
         meta: CacheMeta(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
@@ -13,10 +11,12 @@ final class PulseCoordinator: ObservableObject {
         ),
         accounts: []
     )
+    @Published private(set) var removableAccountIDs = Set<String>()
 
     private let cacheStore = CacheStore()
     private let accountConfigStore = AccountConfigStore()
     private var hasStarted = false
+    private var isSyncing = false
     nonisolated(unsafe) private var syncTimer: Timer?
 
     var accountCount: Int {
@@ -30,7 +30,10 @@ final class PulseCoordinator: ObservableObject {
 
         self.hasStarted = true
         self.cache = self.cacheStore.load()
-        self.lastSyncedAt = self.cache.meta.generatedAt
+        self.removableAccountIDs = self.buildRemovableAccountIDs(
+            for: self.cache.accounts,
+            config: self.loadConfig()
+        )
 
         // Initial sync
         Task {
@@ -50,6 +53,13 @@ final class PulseCoordinator: ObservableObject {
     }
 
     func syncNow() async {
+        guard !self.isSyncing else {
+            return
+        }
+
+        self.isSyncing = true
+        defer { self.isSyncing = false }
+
         do {
             let config = self.loadConfig()
             var incomingSnapshots: [AccountSnapshot] = []
@@ -64,32 +74,33 @@ final class PulseCoordinator: ObservableObject {
             }
 
             let merged = self.mergeSnapshots(
-                existing: self.cacheStore.load(),
+                existing: self.cache,
                 incoming: incomingSnapshots
             )
 
             try self.cacheStore.save(merged)
             self.cache = merged
-            self.lastSyncedAt = merged.meta.generatedAt
-            self.statusLine = "Synced \(merged.accounts.count) account(s)"
+            self.removableAccountIDs = self.buildRemovableAccountIDs(
+                for: merged.accounts,
+                config: config
+            )
         } catch {
-            self.statusLine = error.localizedDescription
+            return
         }
     }
 
     func isRemovable(_ account: AccountSnapshot) -> Bool {
-        self.configAccountID(for: account) != nil
+        self.removableAccountIDs.contains(account.accountId)
     }
 
     func removeAccount(_ account: AccountSnapshot) throws {
-        guard let configAccountID = self.configAccountID(for: account) else {
+        guard let configAccountID = self.configAccountID(for: account, in: self.loadConfig()) else {
             return
         }
 
         try self.accountConfigStore.removeAccount(withID: configAccountID)
         self.cache = try self.cacheStore.removeAccount(withID: account.accountId)
-        self.lastSyncedAt = self.cache.meta.generatedAt
-        self.statusLine = "Removed \(account.email)"
+        self.removableAccountIDs.remove(account.accountId)
     }
 
     private func loadConfig() -> PulseConfig {
@@ -480,7 +491,7 @@ final class PulseCoordinator: ObservableObject {
         return trimmed.lowercased()
     }
 
-    private func configAccountID(for account: AccountSnapshot) -> String? {
+    private func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
         guard account.source != "live system auth" else {
             return nil
         }
@@ -492,9 +503,20 @@ final class PulseCoordinator: ObservableObject {
             return nil
         }
 
-        return self.accountConfigStore.load().accounts.first(where: {
+        return config.accounts.first(where: {
             $0.id.trimmingCharacters(in: .whitespacesAndNewlines) == normalizedPrefix
         })?.id
+    }
+
+    private func buildRemovableAccountIDs(
+        for accounts: [AccountSnapshot],
+        config: PulseConfig
+    ) -> Set<String> {
+        Set(
+            accounts.compactMap { account in
+                self.configAccountID(for: account, in: config).map { _ in account.accountId }
+            }
+        )
     }
 
     private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {

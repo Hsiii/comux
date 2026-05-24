@@ -27,6 +27,14 @@ private let editDialogOuterPadding: CGFloat = 20
 private let editDialogContentSpacing: CGFloat = 16
 private let editDialogButtonSpacing: CGFloat = 12
 
+private struct AccountRowModel: Identifiable {
+    let account: AccountSnapshot
+    let displayName: String
+    let canRemove: Bool
+
+    var id: String { self.account.id }
+}
+
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
     return max(620, min(visibleScreenHeight - 120, 820))
@@ -256,22 +264,24 @@ struct SlimDashboardPanelView: View {
             .scrollBounceBehavior(.basedOnSize)
             .usesSubtleAppKitScrollIndicators()
         }
-        .overlay(alignment: .topLeading) {
-            self.measuringContent
-        }
         .onPreferenceChange(ViewHeightKey.self) { height in
             self.measuredContentHeight = max(height, minPanelHeight)
         }
         .preferredColorScheme(.dark)
         .background(InitialFirstResponderResetter())
-        .task {
-            await coordinator.syncNow()
-        }
     }
 
-    private var sortedAccounts: [AccountSnapshot] {
-        sortedAccountsByResetTime(coordinator.cache.accounts) { account in
+    private var rows: [AccountRowModel] {
+        let sortedAccounts = sortedAccountsByResetTime(coordinator.cache.accounts) { account in
             nicknameStore.displayName(for: account)
+        }
+
+        return sortedAccounts.map { account in
+            AccountRowModel(
+                account: account,
+                displayName: nicknameStore.displayName(for: account),
+                canRemove: coordinator.isRemovable(account)
+            )
         }
     }
 
@@ -281,20 +291,26 @@ struct SlimDashboardPanelView: View {
 
             self.controlStrip
         }
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(key: ViewHeightKey.self, value: geometry.size.height)
+            }
+        }
     }
 
     private var accountCardStack: some View {
         VStack(alignment: .leading, spacing: 16) {
-            ForEach(sortedAccounts) { account in
+            ForEach(rows) { row in
                 AccountCardView(
-                    account: account,
-                    displayName: nicknameStore.displayName(for: account),
-                    canRemove: coordinator.isRemovable(account),
+                    account: row.account,
+                    displayName: row.displayName,
+                    canRemove: row.canRemove,
                     onEditDisplayName: {
-                        self.promptForDisplayName(account)
+                        self.promptForDisplayName(row.account)
                     },
                     onRemove: {
-                        self.promptForRemoval(account)
+                        self.promptForRemoval(row.account)
                     }
                 )
             }
@@ -353,20 +369,6 @@ struct SlimDashboardPanelView: View {
         .focusable(false)
     }
 
-    private var measuringContent: some View {
-        self.panelContent
-            .fixedSize(horizontal: false, vertical: true)
-            .background {
-                GeometryReader { geometry in
-                Color.clear
-                    .preference(key: ViewHeightKey.self, value: geometry.size.height)
-                }
-            }
-            .frame(width: panelWidth, alignment: .topLeading)
-            .hidden()
-            .allowsHitTesting(false)
-    }
-
     private func promptForDisplayName(_ account: AccountSnapshot) {
         self.onEditDisplayNameRequested(account)
     }
@@ -387,7 +389,6 @@ struct PulseMenuView: View {
     @StateObject private var nicknameStore = NicknameStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 620
-    @State private var isShowingLaunchAtLoginError = false
     @State private var activeDialog: AccountDialogRoute?
     @State private var draftDisplayName = ""
 
@@ -406,13 +407,10 @@ struct PulseMenuView: View {
         )
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
-        .onChange(of: self.launchAtLoginStore.errorMessage) { _, errorMessage in
-            self.isShowingLaunchAtLoginError = errorMessage != nil
-        }
         .sheet(item: self.$activeDialog) { route in
             self.accountDialog(for: route)
         }
-        .alert("Couldn’t Update Login Item", isPresented: self.$isShowingLaunchAtLoginError) {
+        .alert("Couldn’t Update Login Item", isPresented: self.isShowingLaunchAtLoginError) {
             Button("OK") {
                 self.launchAtLoginStore.clearError()
             }
@@ -490,6 +488,19 @@ struct PulseMenuView: View {
         min(
             max(self.dashboardContentHeight, minPanelHeight),
             maxPanelHeight
+        )
+    }
+
+    private var isShowingLaunchAtLoginError: Binding<Bool> {
+        Binding(
+            get: {
+                self.launchAtLoginStore.errorMessage != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    self.launchAtLoginStore.clearError()
+                }
+            }
         )
     }
 }
