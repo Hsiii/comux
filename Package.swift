@@ -19,7 +19,6 @@ let package = Package(
                 "Pulse.swift",
                 "Format.swift",
                 "Card.swift",
-                "Manage.swift",
                 "Menu.swift",
                 "LaunchAtLogin.swift",
                 "Resources.swift",

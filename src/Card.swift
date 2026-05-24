@@ -405,8 +405,13 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
+    let canRemove: Bool
+    let onEditDisplayName: () -> Void
+    let onRemove: () -> Void
     private let cardHeight: CGFloat = 56
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+    private let actionButtonSize: CGFloat = 28
+    private let actionButtonCornerRadius: CGFloat = 10
 
     var body: some View {
         WeeklyUsageSurfaceView(
@@ -430,9 +435,13 @@ struct AccountCardView: View {
 
                     Spacer(minLength: 12)
 
-                    Text(percentageText(for: account.weeklyWindow))
-                        .font(.headline.weight(.semibold))
-                        .fixedSize(horizontal: true, vertical: false)
+                    HStack(spacing: 8) {
+                        Text(percentageText(for: account.weeklyWindow))
+                            .font(.headline.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
+
+                        self.actionsMenu
+                    }
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -457,5 +466,25 @@ struct AccountCardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            Button("Edit Display Name…", action: onEditDisplayName)
+
+            Button("Remove", role: .destructive, action: onRemove)
+                .disabled(!canRemove)
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: actionButtonSize, height: actionButtonSize)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: actionButtonCornerRadius, style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Account actions")
     }
 }

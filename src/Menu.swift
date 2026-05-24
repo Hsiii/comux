@@ -12,7 +12,6 @@ private struct ViewHeightKey: PreferenceKey {
 // Layout constants and helpers for the menu panel
 private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
-private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let controlSectionHorizontalInset: CGFloat = 0
@@ -87,7 +86,6 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
-    @Binding var isManagingAccounts: Bool
     @Binding var measuredContentHeight: CGFloat
     private let panelPadding: CGFloat = 16
 
@@ -126,7 +124,14 @@ struct SlimDashboardPanelView: View {
             ForEach(sortedAccounts) { account in
                 AccountCardView(
                     account: account,
-                    displayName: nicknameStore.displayName(for: account)
+                    displayName: nicknameStore.displayName(for: account),
+                    canRemove: coordinator.isRemovable(account),
+                    onEditDisplayName: {
+                        self.promptForDisplayName(account)
+                    },
+                    onRemove: {
+                        self.confirmRemoval(of: account)
+                    }
                 )
             }
 
@@ -150,11 +155,6 @@ struct SlimDashboardPanelView: View {
             ) {
                 launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
             }
-
-            self.controlRow("Manage Accounts…") {
-                isManagingAccounts = true
-            }
-
             Divider()
                 .padding(.vertical, controlDividerSpacing)
 
@@ -202,6 +202,59 @@ struct SlimDashboardPanelView: View {
             .hidden()
             .allowsHitTesting(false)
     }
+
+    private func promptForDisplayName(_ account: AccountSnapshot) {
+        let alert = NSAlert()
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        let currentNickname = nicknameStore.nickname(for: account)
+
+        alert.messageText = "Edit Display Name"
+        alert.informativeText = "Choose the name shown for \(account.email)."
+        alert.alertStyle = .informational
+        alert.accessoryView = textField
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        textField.placeholderString = account.label
+        textField.stringValue = currentNickname
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return
+        }
+
+        nicknameStore.saveNicknames(
+            [account.id: textField.stringValue],
+            for: [account]
+        )
+    }
+
+    private func confirmRemoval(of account: AccountSnapshot) {
+        guard coordinator.isRemovable(account) else {
+            NSSound.beep()
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Remove Account?"
+        alert.informativeText = "This removes \(account.email) from CodexMux."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return
+        }
+
+        do {
+            try coordinator.removeAccount(account)
+            nicknameStore.removeNickname(for: account)
+        } catch {
+            let errorAlert = NSAlert(error: error)
+            errorAlert.runModal()
+        }
+    }
 }
 
 
@@ -210,41 +263,18 @@ struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var nicknameStore = NicknameStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
-    @State private var isManagingAccounts = false
     @State private var dashboardContentHeight: CGFloat = 620
     @State private var isShowingLaunchAtLoginError = false
 
     var body: some View {
-        ZStack {
-            SlimDashboardPanelView(
-                coordinator: coordinator,
-                nicknameStore: nicknameStore,
-                launchAtLoginStore: launchAtLoginStore,
-                isManagingAccounts: self.$isManagingAccounts,
-                measuredContentHeight: self.$dashboardContentHeight
-            )
-
-            if self.isManagingAccounts {
-                Color.black.opacity(0.24)
-                    .ignoresSafeArea()
-
-                AccountManagerOverlayView(
-                    coordinator: coordinator,
-                    nicknameStore: nicknameStore,
-                    onCancel: {
-                        self.isManagingAccounts = false
-                    },
-                    onSave: {
-                        self.isManagingAccounts = false
-                    }
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                .zIndex(1)
-            }
-        }
+        SlimDashboardPanelView(
+            coordinator: coordinator,
+            nicknameStore: nicknameStore,
+            launchAtLoginStore: launchAtLoginStore,
+            measuredContentHeight: self.$dashboardContentHeight
+        )
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
-        .animation(.easeOut(duration: 0.16), value: self.isManagingAccounts)
         .onChange(of: self.launchAtLoginStore.errorMessage) { _, errorMessage in
             self.isShowingLaunchAtLoginError = errorMessage != nil
         }
@@ -258,15 +288,9 @@ struct PulseMenuView: View {
     }
 
     private var panelHeight: CGFloat {
-        let fittedDashboardHeight = min(
+        min(
             max(self.dashboardContentHeight, minPanelHeight),
             maxPanelHeight
         )
-
-        if self.isManagingAccounts {
-            return max(fittedDashboardHeight, managerHeight)
-        }
-
-        return fittedDashboardHeight
     }
 }
