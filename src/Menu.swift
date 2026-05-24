@@ -13,6 +13,7 @@ private struct ViewHeightKey: PreferenceKey {
 private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 440
 private let managerHeight: CGFloat = 460
+private let controlHeight: CGFloat = 28
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -125,49 +126,53 @@ struct SlimDashboardPanelView: View {
                 )
             }
 
-            HStack(spacing: 8) {
-                Menu {
-                    Button("Manage Accounts") {
-                        isManagingAccounts = true
-                    }
-
-                    Divider()
-
-                    Button {
-                        launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text("Open at Login")
-
-                            Spacer(minLength: 16)
-
-                            if launchAtLoginStore.opensAtLogin {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .focusable(false)
-                .menuStyle(.borderlessButton)
-
-                Spacer()
-
-                Button("Quit") {
-                    NSApp.terminate(nil)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            .padding(.leading, 14)
+            self.controlStrip
         }
         .padding(16)
+    }
+
+    private var launchAtLoginTitle: String {
+        launchAtLoginStore.opensAtLogin ? "Don't Open at Login" : "Open at Login"
+    }
+
+    private var controlStrip: some View {
+        HStack(spacing: 12) {
+            Button(self.launchAtLoginTitle) {
+                launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12.5, weight: .medium))
+            .foregroundStyle(.primary)
+            .frame(height: controlHeight)
+
+            Spacer(minLength: 0)
+
+            Menu {
+                Button("Manage Accounts") {
+                    isManagingAccounts = true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: controlHeight, height: controlHeight)
+                    .contentShape(Rectangle())
+            }
+            .focusable(false)
+            .menuStyle(.borderlessButton)
+
+            Divider()
+                .frame(height: 16)
+
+            Button("Quit") {
+                NSApp.terminate(nil)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12.5, weight: .medium))
+            .foregroundStyle(.secondary)
+            .frame(height: controlHeight)
+        }
+        .padding(.leading, 14)
     }
 
     private var measuringContent: some View {
