@@ -405,7 +405,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
-    private let cardHeight: CGFloat = 64
+    private let cardHeight: CGFloat = 56
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
 
     var body: some View {
