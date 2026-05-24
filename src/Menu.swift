@@ -16,7 +16,7 @@ private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let controlSectionHorizontalInset: CGFloat = 0
-private let controlStateColumnWidth: CGFloat = 8
+private let controlStateColumnWidth: CGFloat = 16
 private let controlStateSpacing: CGFloat = 0
 
 private var maxPanelHeight: CGFloat {
@@ -137,7 +137,7 @@ struct SlimDashboardPanelView: View {
     }
 
     private var launchAtLoginTitle: String {
-        launchAtLoginStore.opensAtLogin ? "Don't Open at Login" : "Open at Login"
+        "Open at Login"
     }
 
     private var controlStrip: some View {
