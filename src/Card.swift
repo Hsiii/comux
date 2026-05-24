@@ -409,55 +409,53 @@ struct AccountCardView: View {
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            WeeklyUsageSurfaceView(
-                window: account.weeklyWindow,
-                isLocked: isRollingWindowLocked(account.rollingWindow),
-                isActive: account.isCurrentSystemAccount == true,
-                topCornerRadius: 20,
-                bottomCornerRadius: 20,
-                contentInsets: contentInsets
-            ) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        HeaderIdentityClusterView(
-                            displayName: displayName,
-                            rollingWindow: account.rollingWindow,
-                            nameFont: .headline.weight(.semibold),
-                            clusterWidth: 188,
-                            ringSize: 12,
-                            spacing: 6
-                        )
+        WeeklyUsageSurfaceView(
+            window: account.weeklyWindow,
+            isLocked: isRollingWindowLocked(account.rollingWindow),
+            isActive: account.isCurrentSystemAccount == true,
+            topCornerRadius: 20,
+            bottomCornerRadius: 20,
+            contentInsets: contentInsets
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    HeaderIdentityClusterView(
+                        displayName: displayName,
+                        rollingWindow: account.rollingWindow,
+                        nameFont: .headline.weight(.semibold),
+                        clusterWidth: 188,
+                        ringSize: 12,
+                        spacing: 6
+                    )
 
-                        Spacer(minLength: 12)
+                    Spacer(minLength: 12)
 
-                        Text(percentageText(for: account.weeklyWindow))
-                            .font(.headline.weight(.semibold))
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
+                    Text(percentageText(for: account.weeklyWindow))
+                        .font(.headline.weight(.semibold))
+                        .fixedSize(horizontal: true, vertical: false)
+                }
 
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        if let tag = compactAccountTag(for: account) {
-                            Text(tag)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-
-                        Spacer(minLength: 12)
-
-                        Text(resetPaceText(for: account.weeklyWindow))
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    if let tag = compactAccountTag(for: account) {
+                        Text(tag)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
+
+                    Spacer(minLength: 12)
+
+                    Text(resetPaceText(for: account.weeklyWindow))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
-        .background(Color.white.opacity(0.04))
         .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
