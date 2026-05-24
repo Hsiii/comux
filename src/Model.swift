@@ -55,6 +55,36 @@ struct CachePayload: Codable {
     let accounts: [AccountSnapshot]
 }
 
+struct SyncStatus: Equatable {
+    enum Phase: Equatable {
+        case idle
+        case syncing
+    }
+
+    let phase: Phase
+    let completedCount: Int
+    let totalCount: Int
+
+    static func idle() -> SyncStatus {
+        SyncStatus(
+            phase: .idle,
+            completedCount: 0,
+            totalCount: 0
+        )
+    }
+
+    static func syncing(
+        completedCount: Int,
+        totalCount: Int
+    ) -> SyncStatus {
+        SyncStatus(
+            phase: .syncing,
+            completedCount: completedCount,
+            totalCount: totalCount
+        )
+    }
+}
+
 struct AccountConfig: Codable, Identifiable {
     let id: String
     let label: String

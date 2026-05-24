@@ -12,10 +12,13 @@ private struct ViewHeightKey: PreferenceKey {
 // Layout constants and helpers for the menu panel
 private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
+private let panelCornerRadius: CGFloat = 12
+private let panelOuterPadding: CGFloat = 12
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
+private let cardStackSpacing: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
 private let controlTextLeadingInset: CGFloat = 14
@@ -29,10 +32,8 @@ private let editDialogButtonSpacing: CGFloat = 12
 private var controlSectionBottomPadding: CGFloat {
     controlHoverInset
 }
-
-private var panelCornerRadius: CGFloat {
-    controlHoverCornerRadius + controlSectionBottomPadding
-}
+private let syncStatusRowHeight: CGFloat = 24
+private let syncStatusTopPadding: CGFloat = 8
 
 private struct AccountRowModel: Identifiable {
     let account: AccountSnapshot
@@ -314,6 +315,8 @@ struct SlimDashboardPanelView: View {
 
     private var panelContent: some View {
         VStack(alignment: .leading, spacing: 16) {
+            self.syncStatusRow
+
             self.accountCardStack
 
             self.controlStrip
@@ -327,7 +330,7 @@ struct SlimDashboardPanelView: View {
     }
 
     private var accountCardStack: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: cardStackSpacing) {
             ForEach(rows) { row in
                 AccountCardView(
                     account: row.account,
@@ -344,6 +347,46 @@ struct SlimDashboardPanelView: View {
         }
         .padding(.top, cardBlockEdgePadding)
         .padding(.horizontal, cardBlockHorizontalPadding)
+    }
+
+    private var syncStatusRow: some View {
+        HStack(spacing: 8) {
+            if coordinator.syncStatus.phase == .syncing {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+            }
+
+            Text(self.syncStatusText)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+        }
+        .frame(maxWidth: .infinity, minHeight: syncStatusRowHeight, alignment: .leading)
+        .padding(.top, syncStatusTopPadding)
+        .padding(.horizontal, cardBlockHorizontalPadding)
+    }
+
+    private var syncStatusText: String {
+        switch coordinator.syncStatus.phase {
+        case .idle:
+            if let generatedAt = ISO8601DateFormatter().date(from: coordinator.cache.meta.generatedAt) {
+                return "Updated \(formatRelative(generatedAt.ISO8601Format()))"
+            }
+
+            return "Usage synced"
+        case .syncing:
+            let completedCount = coordinator.syncStatus.completedCount
+            let totalCount = max(coordinator.syncStatus.totalCount, completedCount)
+
+            if totalCount == 0 {
+                return "Syncing accounts…"
+            }
+
+            return "Syncing \(completedCount) of \(totalCount) accounts…"
+        }
     }
 
     private var launchAtLoginTitle: String {
@@ -557,9 +600,29 @@ struct PulseMenuView: View {
 
     private var panelHeight: CGFloat {
         min(
-            max(self.dashboardContentHeight, minPanelHeight),
+            max(
+                max(self.dashboardContentHeight, self.estimatedPanelHeight),
+                minPanelHeight
+            ),
             maxPanelHeight
         )
+    }
+
+    private var estimatedPanelHeight: CGFloat {
+        let accountCount = max(self.coordinator.accountCount, 1)
+        let cardsHeight = CGFloat(accountCount) * AccountCardView.height
+        let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
+        let controlSectionHeight = controlHeight * 2 + controlDividerSpacing * 3 + controlSectionBottomPadding + 1
+        let contentHeight =
+            syncStatusTopPadding +
+            syncStatusRowHeight +
+            cardBlockEdgePadding +
+            cardsHeight +
+            cardGapsHeight +
+            controlSectionHeight +
+            panelOuterPadding
+
+        return contentHeight
     }
 
     private var isShowingLaunchAtLoginError: Binding<Bool> {

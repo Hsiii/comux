@@ -1,6 +1,9 @@
 import AppKit
 import SwiftUI
 
+private let accountCardHeight: CGFloat = 56
+private let accountCardCornerRadius: CGFloat = 16
+
 enum WindowHeaderPlacement {
     case above
     case below
@@ -528,13 +531,14 @@ private struct AccountCardMenuTrigger: NSViewRepresentable {
 }
 
 struct AccountCardView: View {
+    static let height: CGFloat = accountCardHeight
+
     let account: AccountSnapshot
     let displayName: String
     let canRemove: Bool
     let onEditDisplayName: () -> Void
     let onRemove: () -> Void
     @State private var isHovered = false
-    private let cardHeight: CGFloat = 56
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
@@ -549,7 +553,7 @@ struct AccountCardView: View {
 
     var body: some View {
         self.cardContent
-            .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .topLeading)
         .overlay {
             self.cardMenuTrigger
         }
@@ -561,8 +565,8 @@ struct AccountCardView: View {
             isLocked: isRollingWindowLocked(account.rollingWindow),
             isActive: account.isCurrentSystemAccount == true,
             isHovered: isHovered,
-            topCornerRadius: 20,
-            bottomCornerRadius: 20,
+            topCornerRadius: accountCardCornerRadius,
+            bottomCornerRadius: accountCardCornerRadius,
             contentInsets: contentInsets
         ) {
             VStack(alignment: .leading, spacing: 4) {

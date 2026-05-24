@@ -12,6 +12,7 @@ final class PulseCoordinator: ObservableObject {
         accounts: []
     )
     @Published private(set) var removableAccountIDs = Set<String>()
+    @Published private(set) var syncStatus = SyncStatus.idle()
 
     private let cacheStore = CacheStore()
     private let accountConfigStore = AccountConfigStore()
@@ -58,32 +59,42 @@ final class PulseCoordinator: ObservableObject {
         }
 
         self.isSyncing = true
-        defer { self.isSyncing = false }
+        defer {
+            self.isSyncing = false
+            self.syncStatus = .idle()
+        }
 
         do {
             let config = self.loadConfig()
             var incomingSnapshots: [AccountSnapshot] = []
+            let hasSystemIdentity = (try? self.loadSystemIdentity()) != nil
+            let totalCount = config.accounts.count + (hasSystemIdentity ? 1 : 0)
+
+            self.syncStatus = .syncing(
+                completedCount: 0,
+                totalCount: totalCount
+            )
 
             if let systemSnapshot = try await self.buildSystemSnapshotIfAvailable() {
                 incomingSnapshots.append(systemSnapshot)
+                self.publishMergedSnapshots(
+                    incomingSnapshots,
+                    config: config,
+                    completedCount: incomingSnapshots.count,
+                    totalCount: totalCount
+                )
             }
 
             for account in config.accounts {
                 let snapshot = try await self.buildCookieSnapshot(for: account)
                 incomingSnapshots.append(snapshot)
+                self.publishMergedSnapshots(
+                    incomingSnapshots,
+                    config: config,
+                    completedCount: incomingSnapshots.count,
+                    totalCount: totalCount
+                )
             }
-
-            let merged = self.mergeSnapshots(
-                existing: self.cache,
-                incoming: incomingSnapshots
-            )
-
-            try self.cacheStore.save(merged)
-            self.cache = merged
-            self.removableAccountIDs = self.buildRemovableAccountIDs(
-                for: merged.accounts,
-                config: config
-            )
         } catch {
             return
         }
@@ -704,5 +715,28 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return "Codex \(rawPlan.prefix(1).uppercased())\(rawPlan.dropFirst())"
+    }
+
+    private func publishMergedSnapshots(
+        _ snapshots: [AccountSnapshot],
+        config: PulseConfig,
+        completedCount: Int,
+        totalCount: Int
+    ) {
+        let merged = self.mergeSnapshots(
+            existing: self.cache,
+            incoming: snapshots
+        )
+
+        try? self.cacheStore.save(merged)
+        self.cache = merged
+        self.removableAccountIDs = self.buildRemovableAccountIDs(
+            for: merged.accounts,
+            config: config
+        )
+        self.syncStatus = .syncing(
+            completedCount: completedCount,
+            totalCount: totalCount
+        )
     }
 }
