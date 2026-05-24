@@ -15,8 +15,10 @@ private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
-private let controlStateColumnWidth: CGFloat = 14
-private let controlStateSpacing: CGFloat = 8
+private let controlSectionHorizontalInset: CGFloat = 8
+private let controlRowLeadingInset: CGFloat = 4
+private let controlStateColumnWidth: CGFloat = 10
+private let controlStateSpacing: CGFloat = 6
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -161,6 +163,7 @@ struct SlimDashboardPanelView: View {
                 NSApp.terminate(nil)
             }
         }
+        .padding(.horizontal, controlSectionHorizontalInset)
     }
 
     private func controlRow(
@@ -181,6 +184,7 @@ struct SlimDashboardPanelView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
             }
+            .padding(.leading, controlRowLeadingInset)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
