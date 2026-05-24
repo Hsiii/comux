@@ -129,20 +129,42 @@ private struct LiquidGlassMaterialView: NSViewRepresentable {
 }
 
 private struct ControlRowButtonStyle: ButtonStyle {
-    @State private var isHovered = false
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+private struct ControlRowContent: View {
+    let title: String
+    let showsCheckmark: Bool
+    @State private var isHovered = false
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 12.5, weight: .regular))
+            .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
+            .padding(.leading, controlTextLeadingInset)
+            .overlay(alignment: .leading) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: controlTextLeadingInset, alignment: .center)
+                    .opacity(showsCheckmark ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+            .padding(.horizontal, controlRowHorizontalInset)
             .background {
                 RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
-                    .fill(self.backgroundColor(isPressed: configuration.isPressed))
+                    .fill(self.backgroundColor)
                     .padding(.horizontal, controlHoverInset)
             }
             .foregroundStyle(self.foregroundColor)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .animation(.easeOut(duration: 0.12), value: isHovered)
             .onHover { hovering in
-                isHovered = hovering
+                self.isHovered = hovering
+            }
+            .onDisappear {
+                self.isHovered = false
             }
     }
 
@@ -150,13 +172,13 @@ private struct ControlRowButtonStyle: ButtonStyle {
         isHovered ? Color(nsColor: .selectedMenuItemTextColor) : .primary
     }
 
-    private func backgroundColor(isPressed: Bool) -> Color {
-        guard isHovered || isPressed else {
+    private var backgroundColor: Color {
+        guard isHovered else {
             return .clear
         }
 
         let color = NSColor.selectedContentBackgroundColor
-        return Color(nsColor: color.withAlphaComponent(isPressed ? 0.96 : 0.88))
+        return Color(nsColor: color.withAlphaComponent(0.88))
     }
 }
 
@@ -420,18 +442,10 @@ struct SlimDashboardPanelView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12.5, weight: .regular))
-                .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
-                .padding(.leading, controlTextLeadingInset)
-                .overlay(alignment: .leading) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: controlTextLeadingInset, alignment: .center)
-                        .opacity(showsCheckmark ? 1 : 0)
-                }
-                .contentShape(Rectangle())
-                .padding(.horizontal, controlRowHorizontalInset)
+            ControlRowContent(
+                title: title,
+                showsCheckmark: showsCheckmark
+            )
         }
         .buttonStyle(ControlRowButtonStyle())
         .focusable(false)
