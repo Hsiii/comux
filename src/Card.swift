@@ -495,15 +495,27 @@ struct AccountCardView: View {
     }
 
     private var actionsMenu: some View {
-        Menu(truncatedDisplayName) {
+        Menu {
             Button("Edit Display Name…", action: onEditDisplayName)
 
             Button("Remove", role: .destructive, action: onRemove)
                 .disabled(!canRemove)
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(truncatedDisplayName)
+                    .font(.headline.weight(.semibold))
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.primary)
         }
-        .font(.headline.weight(.semibold))
-        .foregroundStyle(.primary)
-        .lineLimit(1)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .focusable(false)
         .fixedSize()
         .help("Account actions")
     }
