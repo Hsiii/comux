@@ -82,7 +82,10 @@ final class CacheStore {
         var accountsByIdentity: [String: AccountSnapshot] = [:]
 
         for account in payload.accounts {
-            let normalizedAccount = self.normalizedAccountIdentity(for: account)
+            let normalizedAccount = self.normalizedAccountIdentity(
+                for: account,
+                within: payload.accounts
+            )
             let prior = accountsByIdentity[normalizedAccount.accountId]
             accountsByIdentity[normalizedAccount.accountId] = self.preferredAccountSnapshot(
                 current: prior,
@@ -104,13 +107,21 @@ final class CacheStore {
         )
     }
 
-    private func normalizedAccountIdentity(for account: AccountSnapshot) -> AccountSnapshot {
-        let usesSystemIdentity = account.source == "live system auth"
-        let normalizedAccountID = buildSnapshotKey(
-            accountId: account.accountId,
-            email: account.email,
-            isCurrentSystemAccount: usesSystemIdentity || account.isCurrentSystemAccount == true
-        )
+    private func normalizedAccountIdentity(
+        for account: AccountSnapshot,
+        within accounts: [AccountSnapshot]
+    ) -> AccountSnapshot {
+        let normalizedAccountID: String
+
+        if self.shouldRewriteLegacySystemIdentity(for: account, within: accounts) {
+            normalizedAccountID = buildSnapshotKey(
+                accountId: account.accountId,
+                email: account.email,
+                isCurrentSystemAccount: true
+            )
+        } else {
+            normalizedAccountID = account.accountId
+        }
 
         return AccountSnapshot(
             accountId: normalizedAccountID,
@@ -127,6 +138,47 @@ final class CacheStore {
             pace: account.pace,
             history: account.history
         )
+    }
+
+    private func shouldRewriteLegacySystemIdentity(
+        for account: AccountSnapshot,
+        within accounts: [AccountSnapshot]
+    ) -> Bool {
+        guard account.source == "live system auth",
+              account.accountId.hasPrefix("system::") == false,
+              account.isCurrentSystemAccount != true
+        else {
+            return false
+        }
+
+        let normalizedEmail = account.email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalizedEmail.isEmpty else {
+            return false
+        }
+
+        return accounts.contains { candidate in
+            guard candidate.accountId != account.accountId else {
+                return false
+            }
+
+            let candidateEmail = candidate.email
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+
+            guard candidateEmail == normalizedEmail else {
+                return false
+            }
+
+            let candidateIsStableSystem = candidate.accountId == "system::\(normalizedEmail)"
+            let candidateLooksCanonical = candidate.accountId.hasPrefix("user-")
+                || candidate.accountId.hasPrefix("org-")
+                || candidate.accountId.hasPrefix("workspace-")
+
+            return candidateIsStableSystem || candidateLooksCanonical
+        }
     }
 
     private func preferredAccountSnapshot(
