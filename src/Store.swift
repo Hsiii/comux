@@ -103,13 +103,21 @@ final class CacheStore {
     private func normalizedAccountIdentity(
         for account: AccountSnapshot
     ) -> AccountSnapshot {
-        let normalizedAccountID = canonicalAccountIdentity(for: account)
+        let workspaceID = resolvedWorkspaceIdentity(
+            accountId: account.accountId,
+            workspaceId: account.workspaceId
+        )
+        let normalizedAccountID = buildAccountPrimaryKey(
+            email: account.email,
+            workspaceId: workspaceID,
+            workspaceLabel: account.workspaceLabel
+        )
 
         return AccountSnapshot(
             accountId: normalizedAccountID,
             label: account.label,
             email: account.email,
-            workspaceId: account.workspaceId,
+            workspaceId: workspaceID,
             workspaceLabel: account.workspaceLabel,
             plan: account.plan,
             source: account.source,
@@ -377,9 +385,13 @@ final class NicknameStore: ObservableObject {
         }
 
         return payload.accounts.map { account in
+            let workspaceID = resolvedWorkspaceIdentity(
+                accountId: account.accountId,
+                workspaceId: account.workspaceId
+            )
             let stableAccountID = buildAccountPrimaryKey(
                 email: account.email,
-                workspaceId: account.workspaceId,
+                workspaceId: workspaceID,
                 workspaceLabel: account.workspaceLabel
             )
 
@@ -387,7 +399,7 @@ final class NicknameStore: ObservableObject {
                 accountId: stableAccountID,
                 label: account.label,
                 email: account.email,
-                workspaceId: account.workspaceId,
+                workspaceId: workspaceID,
                 workspaceLabel: account.workspaceLabel,
                 plan: account.plan,
                 source: account.source,

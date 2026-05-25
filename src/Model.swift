@@ -72,6 +72,31 @@ func legacyBaseAccountID(from accountID: String) -> String {
     return String(accountID[..<separatorRange.lowerBound])
 }
 
+func resolvedWorkspaceIdentity(
+    accountId: String,
+    workspaceId: String?
+) -> String? {
+    if let trimmedWorkspaceID = workspaceId?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !trimmedWorkspaceID.isEmpty {
+        return trimmedWorkspaceID
+    }
+
+    let legacyAccountID = legacyBaseAccountID(from: accountId)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !legacyAccountID.isEmpty else {
+        return nil
+    }
+
+    if legacyAccountID.hasPrefix("user-")
+        || legacyAccountID.hasPrefix("org-")
+        || legacyAccountID.hasPrefix("workspace-") {
+        return legacyAccountID
+    }
+
+    return nil
+}
+
 func buildAccountPrimaryKey(
     email: String,
     workspaceId: String?,

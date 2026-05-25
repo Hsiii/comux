@@ -149,10 +149,10 @@ final class PulseCoordinator: ObservableObject {
         var snapshots: [AccountSnapshot] = []
 
         for workspaceItem in workspaceItems {
-            let workspaceAccountID = self.normalizeWorkspaceAccountID(workspaceItem.id)
+            let workspaceAccountID = self.trimmedWorkspaceAccountID(workspaceItem.id)
             let rawUsage: [String: Any]
 
-            if workspaceAccountID == currentWorkspaceAccountID {
+            if self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID {
                 rawUsage = currentUsage
             } else {
                 rawUsage = try await self.fetchUsagePayload(
@@ -557,6 +557,16 @@ final class PulseCoordinator: ObservableObject {
         return trimmed.lowercased()
     }
 
+    private func trimmedWorkspaceAccountID(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+
+        return trimmed
+    }
+
     private func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
         let accountIdentity = canonicalAccountIdentity(for: account)
         return config.accounts.first(where: {
@@ -691,11 +701,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func snapshotIdentity(for account: AccountSnapshot) -> String {
-        buildAccountPrimaryKey(
-            email: account.email,
-            workspaceId: account.workspaceId,
-            workspaceLabel: account.workspaceLabel
-        )
+        canonicalAccountIdentity(for: account)
     }
 
     private func preferredStoredSnapshot(
