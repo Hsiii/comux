@@ -163,6 +163,16 @@ final class PulseCoordinator: ObservableObject {
                 )
             }
 
+            let responseWorkspaceAccountID = self.normalizeWorkspaceAccountID(
+                rawUsage["account_id"] as? String
+            )
+
+            if let workspaceAccountID,
+               responseWorkspaceAccountID != nil,
+               responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
+                continue
+            }
+
             snapshots.append(
                 try self.normalizeUsage(
                     rawUsage,
