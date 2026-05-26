@@ -10,8 +10,7 @@ final class CacheStore {
     }()
 
     func load() -> CachePayload {
-        let payload = self.durableStore.load(
-            from: CodexMuxPaths.cache,
+        let payload = self.durableStore.loadCache(
             fallback: self.emptyPayload()
         )
 
@@ -27,9 +26,8 @@ final class CacheStore {
     }
 
     func save(_ payload: CachePayload) throws {
-        try self.durableStore.save(
+        try self.durableStore.saveCache(
             payload,
-            to: CodexMuxPaths.cache,
             event: "cache.save"
         )
     }
@@ -196,16 +194,14 @@ final class AccountConfigStore {
     private let durableStore = DurableStoreCoordinator.shared
 
     func load() -> PulseConfig {
-        self.durableStore.load(
-            from: CodexMuxPaths.config,
+        self.durableStore.loadConfig(
             fallback: .default
         )
     }
 
     func save(_ config: PulseConfig) throws {
-        try self.durableStore.save(
+        try self.durableStore.saveConfig(
             config,
-            to: CodexMuxPaths.config,
             event: "config.save"
         )
     }
@@ -230,10 +226,7 @@ final class NicknameStore: ObservableObject {
     private let legacyDefaultsKey = "codexboard.nicknames.v1"
 
     init() {
-        let fileNicknames = self.durableStore.load(
-            from: CodexMuxPaths.nicknames,
-            fallback: NicknamePayload.empty
-        ).nicknames
+        let fileNicknames = self.durableStore.loadNicknames()
         let defaultsNicknames = Self.loadNicknames(for: self.defaultsKey)
         let legacyNicknames = Self.loadNicknames(for: self.legacyDefaultsKey)
         let seedNicknames = !fileNicknames.isEmpty
@@ -256,23 +249,13 @@ final class NicknameStore: ObservableObject {
     }
 
     private func loadNicknames() -> [String: String] {
-        self.durableStore.load(
-            from: CodexMuxPaths.nicknames,
-            fallback: NicknamePayload.empty
-        ).nicknames
+        self.durableStore.loadNicknames()
     }
 
     private func persistNicknames(_ nicknames: [String: String]) {
         self.nicknames = nicknames
-        let payload = NicknamePayload(
-            schemaVersion: 1,
-            updatedAt: ISO8601DateFormatter().string(from: Date()),
-            nicknames: nicknames
-        )
-
-        try? self.durableStore.save(
-            payload,
-            to: CodexMuxPaths.nicknames,
+        try? self.durableStore.saveNicknames(
+            nicknames,
             event: "nicknames.save"
         )
     }
@@ -421,8 +404,7 @@ final class NicknameStore: ObservableObject {
     }
 
     private func loadAccountsForNicknameMigration() -> [AccountSnapshot] {
-        let payload = self.durableStore.load(
-            from: CodexMuxPaths.cache,
+        let payload = self.durableStore.loadCache(
             fallback: CachePayload(
                 meta: CacheMeta(
                     source: "native-swift-cache"

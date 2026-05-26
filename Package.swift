@@ -26,6 +26,9 @@ let package = Package(
             ],
             resources: [
                 .process("../assets")
+            ],
+            linkerSettings: [
+                .linkedLibrary("sqlite3")
             ]
         )
     ]
