@@ -176,6 +176,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             try self.executeLocked("PRAGMA foreign_keys = ON;")
             try self.executeLocked("PRAGMA busy_timeout = 5000;")
             try self.createSchemaLocked()
+            try self.migrateAccountSnapshotSchemaIfNeededLocked()
             try self.migrateLegacyStorageIfNeededLocked()
         } catch {
             sqlite3_close(database)
@@ -203,6 +204,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 workspace_label TEXT NOT NULL,
                 plan TEXT NOT NULL,
                 source TEXT NOT NULL,
+                system_auth_profile_id TEXT,
                 is_current_system_account INTEGER,
                 last_synced_at TEXT NOT NULL,
                 weekly_available INTEGER NOT NULL,
@@ -282,6 +284,22 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         }
     }
 
+    private func migrateAccountSnapshotSchemaIfNeededLocked() throws {
+        guard try !self.columnExistsLocked(
+            table: "account_snapshots",
+            column: "system_auth_profile_id"
+        ) else {
+            return
+        }
+
+        try self.executeLocked(
+            """
+            ALTER TABLE account_snapshots
+            ADD COLUMN system_auth_profile_id TEXT;
+            """
+        )
+    }
+
     private func loadLegacyCacheLocked() -> CachePayload {
         guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
               let payload = try? self.decoder.decode(CachePayload.self, from: data) else {
@@ -352,6 +370,22 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         }
     }
 
+    private func columnExistsLocked(
+        table: String,
+        column: String
+    ) throws -> Bool {
+        let statement = try self.prepareLocked("PRAGMA table_info(\(table));")
+        defer { sqlite3_finalize(statement) }
+
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if self.columnText(statement, index: 1) == column {
+                return true
+            }
+        }
+
+        return false
+    }
+
     private func metaValueLocked(for key: String) throws -> String? {
         guard self.database != nil else {
             throw DatabaseError.notOpen
@@ -391,6 +425,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 workspace_label,
                 plan,
                 source,
+                system_auth_profile_id,
                 is_current_system_account,
                 last_synced_at,
                 weekly_available,
@@ -415,20 +450,20 @@ final class DurableStoreCoordinator: @unchecked Sendable {
 
         while sqlite3_step(statement) == SQLITE_ROW {
             let weekly = UsageWindow(
-                available: sqlite3_column_int(statement, 9) != 0,
-                label: self.columnText(statement, index: 10) ?? "",
-                usedMinutes: Int(sqlite3_column_int(statement, 11)),
-                limitMinutes: Int(sqlite3_column_int(statement, 12)),
-                usedPercentage: sqlite3_column_double(statement, 13),
-                resetsAt: self.columnText(statement, index: 14) ?? ""
+                available: sqlite3_column_int(statement, 10) != 0,
+                label: self.columnText(statement, index: 11) ?? "",
+                usedMinutes: Int(sqlite3_column_int(statement, 12)),
+                limitMinutes: Int(sqlite3_column_int(statement, 13)),
+                usedPercentage: sqlite3_column_double(statement, 14),
+                resetsAt: self.columnText(statement, index: 15) ?? ""
             )
             let rolling = UsageWindow(
-                available: sqlite3_column_int(statement, 15) != 0,
-                label: self.columnText(statement, index: 16) ?? "",
-                usedMinutes: Int(sqlite3_column_int(statement, 17)),
-                limitMinutes: Int(sqlite3_column_int(statement, 18)),
-                usedPercentage: sqlite3_column_double(statement, 19),
-                resetsAt: self.columnText(statement, index: 20) ?? ""
+                available: sqlite3_column_int(statement, 16) != 0,
+                label: self.columnText(statement, index: 17) ?? "",
+                usedMinutes: Int(sqlite3_column_int(statement, 18)),
+                limitMinutes: Int(sqlite3_column_int(statement, 19)),
+                usedPercentage: sqlite3_column_double(statement, 20),
+                resetsAt: self.columnText(statement, index: 21) ?? ""
             )
 
             snapshots.append(
@@ -440,10 +475,11 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                     workspaceLabel: self.columnText(statement, index: 4) ?? "",
                     plan: self.columnText(statement, index: 5) ?? "",
                     source: self.columnText(statement, index: 6) ?? "",
-                    isCurrentSystemAccount: sqlite3_column_type(statement, 7) == SQLITE_NULL
+                    systemAuthProfileId: self.columnText(statement, index: 7),
+                    isCurrentSystemAccount: sqlite3_column_type(statement, 8) == SQLITE_NULL
                         ? nil
-                        : sqlite3_column_int(statement, 7) != 0,
-                    lastSyncedAt: self.columnText(statement, index: 8) ?? "",
+                        : sqlite3_column_int(statement, 8) != 0,
+                    lastSyncedAt: self.columnText(statement, index: 9) ?? "",
                     weeklyWindow: weekly,
                     rollingWindow: rolling
                 )
@@ -466,6 +502,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 workspace_label,
                 plan,
                 source,
+                system_auth_profile_id,
                 is_current_system_account,
                 last_synced_at,
                 weekly_available,
@@ -480,7 +517,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 rolling_limit_minutes,
                 rolling_used_percentage,
                 rolling_resets_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -496,20 +533,21 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             self.bindText(snapshot.workspaceLabel, to: statement, index: 5)
             self.bindText(snapshot.plan, to: statement, index: 6)
             self.bindText(snapshot.source, to: statement, index: 7)
-            self.bindOptionalBool(snapshot.isCurrentSystemAccount, to: statement, index: 8)
-            self.bindText(snapshot.lastSyncedAt, to: statement, index: 9)
-            sqlite3_bind_int(statement, 10, snapshot.weeklyWindow.available ? 1 : 0)
-            self.bindText(snapshot.weeklyWindow.label, to: statement, index: 11)
-            sqlite3_bind_int(statement, 12, Int32(snapshot.weeklyWindow.usedMinutes))
-            sqlite3_bind_int(statement, 13, Int32(snapshot.weeklyWindow.limitMinutes))
-            sqlite3_bind_double(statement, 14, snapshot.weeklyWindow.usedPercentage)
-            self.bindText(snapshot.weeklyWindow.resetsAt, to: statement, index: 15)
-            sqlite3_bind_int(statement, 16, snapshot.rollingWindow.available ? 1 : 0)
-            self.bindText(snapshot.rollingWindow.label, to: statement, index: 17)
-            sqlite3_bind_int(statement, 18, Int32(snapshot.rollingWindow.usedMinutes))
-            sqlite3_bind_int(statement, 19, Int32(snapshot.rollingWindow.limitMinutes))
-            sqlite3_bind_double(statement, 20, snapshot.rollingWindow.usedPercentage)
-            self.bindText(snapshot.rollingWindow.resetsAt, to: statement, index: 21)
+            self.bindOptionalText(snapshot.systemAuthProfileId, to: statement, index: 8)
+            self.bindOptionalBool(snapshot.isCurrentSystemAccount, to: statement, index: 9)
+            self.bindText(snapshot.lastSyncedAt, to: statement, index: 10)
+            sqlite3_bind_int(statement, 11, snapshot.weeklyWindow.available ? 1 : 0)
+            self.bindText(snapshot.weeklyWindow.label, to: statement, index: 12)
+            sqlite3_bind_int(statement, 13, Int32(snapshot.weeklyWindow.usedMinutes))
+            sqlite3_bind_int(statement, 14, Int32(snapshot.weeklyWindow.limitMinutes))
+            sqlite3_bind_double(statement, 15, snapshot.weeklyWindow.usedPercentage)
+            self.bindText(snapshot.weeklyWindow.resetsAt, to: statement, index: 16)
+            sqlite3_bind_int(statement, 17, snapshot.rollingWindow.available ? 1 : 0)
+            self.bindText(snapshot.rollingWindow.label, to: statement, index: 18)
+            sqlite3_bind_int(statement, 19, Int32(snapshot.rollingWindow.usedMinutes))
+            sqlite3_bind_int(statement, 20, Int32(snapshot.rollingWindow.limitMinutes))
+            sqlite3_bind_double(statement, 21, snapshot.rollingWindow.usedPercentage)
+            self.bindText(snapshot.rollingWindow.resetsAt, to: statement, index: 22)
 
             try self.stepDoneLocked(statement)
         }

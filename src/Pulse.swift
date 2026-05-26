@@ -179,6 +179,7 @@ final class PulseCoordinator: ObservableObject {
                     ),
                     plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
                     source: "live system auth",
+                    systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
                     isCurrentSystemAccount: true
                 )
             ]
@@ -225,6 +226,7 @@ final class PulseCoordinator: ObservableObject {
                     ),
                     plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
                     source: "live system auth",
+                    systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
                     isCurrentSystemAccount: self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
                 )
             )
@@ -261,6 +263,7 @@ final class PulseCoordinator: ObservableObject {
                 ? account.plan
                 : self.displayPlan(rawUsage["plan_type"] as? String),
             source: account.source ?? "native cookie sync",
+            systemAuthProfileID: nil,
             isCurrentSystemAccount: false
         )
     }
@@ -423,6 +426,7 @@ final class PulseCoordinator: ObservableObject {
         workspaceLabel: String,
         plan: String,
         source: String,
+        systemAuthProfileID: String?,
         isCurrentSystemAccount: Bool
     ) throws -> AccountSnapshot {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
@@ -452,6 +456,7 @@ final class PulseCoordinator: ObservableObject {
             workspaceLabel: resolvedWorkspaceLabel,
             plan: resolvedPlan,
             source: source,
+            systemAuthProfileId: systemAuthProfileID,
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: now,
             weeklyWindow: windows.weeklyWindow,
@@ -670,15 +675,26 @@ final class PulseCoordinator: ObservableObject {
         incoming: [AccountSnapshot]
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
+        let reconciledIncoming = self.reconciledSystemSnapshots(
+            incoming,
+            existing: existing.accounts
+        )
 
         for account in existing.accounts {
+            if self.shouldDiscardSupersededSystemSnapshot(
+                account,
+                incoming: reconciledIncoming
+            ) {
+                continue
+            }
+
             let prior = existingByIdentity[account.accountId]
             existingByIdentity[account.accountId] = self.preferredStoredSnapshot(prior, candidate: account)
         }
 
         var activeIdentity: String?
 
-        for snapshot in incoming {
+        for snapshot in reconciledIncoming {
             existingByIdentity[snapshot.accountId] = AccountSnapshot(
                 accountId: snapshot.accountId,
                 label: snapshot.label,
@@ -687,6 +703,7 @@ final class PulseCoordinator: ObservableObject {
                 workspaceLabel: snapshot.workspaceLabel,
                 plan: snapshot.plan,
                 source: snapshot.source,
+                systemAuthProfileId: snapshot.systemAuthProfileId,
                 isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
                 lastSyncedAt: snapshot.lastSyncedAt,
                 weeklyWindow: snapshot.weeklyWindow,
@@ -712,6 +729,7 @@ final class PulseCoordinator: ObservableObject {
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
                     source: account.source,
+                    systemAuthProfileId: account.systemAuthProfileId,
                     isCurrentSystemAccount: isActive,
                     lastSyncedAt: account.lastSyncedAt,
                     weeklyWindow: account.weeklyWindow,
@@ -728,6 +746,7 @@ final class PulseCoordinator: ObservableObject {
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
                     source: account.source,
+                    systemAuthProfileId: account.systemAuthProfileId,
                     isCurrentSystemAccount: false,
                     lastSyncedAt: account.lastSyncedAt,
                     weeklyWindow: account.weeklyWindow,
@@ -766,11 +785,109 @@ final class PulseCoordinator: ObservableObject {
             workspaceLabel: newest.workspaceLabel,
             plan: newest.plan,
             source: newest.source,
+            systemAuthProfileId: newest.systemAuthProfileId,
             isCurrentSystemAccount: newest.isCurrentSystemAccount,
             lastSyncedAt: newest.lastSyncedAt,
             weeklyWindow: newest.weeklyWindow,
             rollingWindow: newest.rollingWindow
         )
+    }
+
+    private func reconciledSystemSnapshots(
+        _ incoming: [AccountSnapshot],
+        existing: [AccountSnapshot]
+    ) -> [AccountSnapshot] {
+        incoming.map { snapshot in
+            guard snapshot.source == "live system auth",
+                  snapshot.workspaceLabel == "Personal",
+                  let profileID = normalizedSystemAuthProfileID(snapshot.systemAuthProfileId)
+            else {
+                return snapshot
+            }
+
+            let historicalLabels = Set(
+                existing.compactMap { candidate -> String? in
+                    guard candidate.source == "live system auth",
+                          normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
+                    else {
+                        return nil
+                    }
+
+                    let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedLabel.isEmpty,
+                          trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
+                    else {
+                        return nil
+                    }
+
+                    return trimmedLabel
+                }
+            )
+
+            guard historicalLabels.count == 1,
+                  let preservedWorkspaceLabel = historicalLabels.first
+            else {
+                return snapshot
+            }
+
+            let preservedAccountID = buildAccountPrimaryKey(
+                email: snapshot.email,
+                workspaceId: snapshot.workspaceId,
+                workspaceLabel: preservedWorkspaceLabel
+            )
+
+            return AccountSnapshot(
+                accountId: preservedAccountID,
+                label: snapshot.label,
+                email: snapshot.email,
+                workspaceId: snapshot.workspaceId,
+                workspaceLabel: preservedWorkspaceLabel,
+                plan: snapshot.plan,
+                source: snapshot.source,
+                systemAuthProfileId: snapshot.systemAuthProfileId,
+                isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
+                lastSyncedAt: snapshot.lastSyncedAt,
+                weeklyWindow: snapshot.weeklyWindow,
+                rollingWindow: snapshot.rollingWindow
+            )
+        }
+    }
+
+    private func shouldDiscardSupersededSystemSnapshot(
+        _ existing: AccountSnapshot,
+        incoming: [AccountSnapshot]
+    ) -> Bool {
+        guard existing.source == "live system auth",
+              let existingProfileID = normalizedSystemAuthProfileID(existing.systemAuthProfileId)
+        else {
+            return false
+        }
+
+        let incomingForProfile = incoming.filter {
+            $0.source == "live system auth"
+                && normalizedSystemAuthProfileID($0.systemAuthProfileId) == existingProfileID
+        }
+
+        guard !incomingForProfile.isEmpty else {
+            return false
+        }
+
+        let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
+        return incomingForProfile.contains { candidate in
+            candidate.accountId != existing.accountId
+                && self.systemWorkspaceSlot(for: candidate) == existingWorkspaceSlot
+        }
+    }
+
+    private func systemWorkspaceSlot(for account: AccountSnapshot) -> String {
+        if let workspaceID = resolvedWorkspaceIdentity(
+            accountId: account.accountId,
+            workspaceId: account.workspaceId
+        ) {
+            return "workspace:\(workspaceID.lowercased())"
+        }
+
+        return "__no_workspace__"
     }
 
     private func displayPlan(_ rawPlan: String?) -> String {

@@ -21,6 +21,7 @@ struct AccountSnapshot: Codable, Identifiable {
     let workspaceLabel: String
     let plan: String
     let source: String
+    let systemAuthProfileId: String?
     let isCurrentSystemAccount: Bool?
     let lastSyncedAt: String
     let weeklyWindow: UsageWindow
@@ -139,6 +140,15 @@ struct SystemAuthIdentity {
     let planType: String?
     let organizationTitles: [String]
     let subject: String?
+}
+
+func normalizedSystemAuthProfileID(_ value: String?) -> String? {
+    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !trimmed.isEmpty else {
+        return nil
+    }
+
+    return trimmed.lowercased()
 }
 
 struct WindowPair {
