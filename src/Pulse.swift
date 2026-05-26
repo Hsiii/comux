@@ -227,7 +227,15 @@ final class PulseCoordinator: ObservableObject {
         _ currentUsage: [String: Any],
         identity: SystemAuthIdentity
     ) throws -> AccountSnapshot {
-        let workspaceID = currentUsage["account_id"] as? String ?? identity.accountId
+        let plan = self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType)
+        let workspaceLabel = self.resolveWorkspaceName(
+            currentUsage,
+            workspaceItem: nil,
+            identity: identity
+        )
+        let workspaceID = normalizedWorkspaceLabel(workspaceLabel, plan: plan) == "Personal"
+            ? nil
+            : currentUsage["account_id"] as? String ?? identity.accountId
 
         return try self.normalizeUsage(
             currentUsage,
@@ -235,12 +243,8 @@ final class PulseCoordinator: ObservableObject {
             label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
             email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
             workspaceID: workspaceID,
-            workspaceLabel: self.resolveWorkspaceName(
-                currentUsage,
-                workspaceItem: nil,
-                identity: identity
-            ),
-            plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
+            workspaceLabel: workspaceLabel,
+            plan: plan,
             source: "live system auth",
             systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
             isCurrentSystemAccount: true
@@ -687,15 +691,11 @@ final class PulseCoordinator: ObservableObject {
         incoming: [AccountSnapshot]
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
-        let reconciledIncoming = self.reconciledSystemSnapshots(
-            incoming,
-            existing: existing.accounts
-        )
 
         for account in existing.accounts {
             if self.shouldDiscardSupersededSystemSnapshot(
                 account,
-                incoming: reconciledIncoming
+                incoming: incoming
             ) {
                 continue
             }
@@ -706,7 +706,7 @@ final class PulseCoordinator: ObservableObject {
 
         var activeIdentity: String?
 
-        for snapshot in reconciledIncoming {
+        for snapshot in incoming {
             existingByIdentity[snapshot.accountId] = AccountSnapshot(
                 accountId: snapshot.accountId,
                 label: snapshot.label,
@@ -803,100 +803,6 @@ final class PulseCoordinator: ObservableObject {
             weeklyWindow: newest.weeklyWindow,
             rollingWindow: newest.rollingWindow
         )
-    }
-
-    private func reconciledSystemSnapshots(
-        _ incoming: [AccountSnapshot],
-        existing: [AccountSnapshot]
-    ) -> [AccountSnapshot] {
-        incoming.map { snapshot in
-            guard snapshot.source == "live system auth",
-                  snapshot.workspaceLabel == "Personal",
-                  let profileID = normalizedSystemAuthProfileID(snapshot.systemAuthProfileId)
-            else {
-                return snapshot
-            }
-
-            let historicalCandidates = existing.filter { candidate in
-                candidate.source == "live system auth"
-                    && normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
-            }
-            let incomingHasWorkspaceSnapshot = incoming.contains { candidate in
-                guard candidate.accountId != snapshot.accountId,
-                      candidate.source == "live system auth",
-                      normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
-                else {
-                    return false
-                }
-
-                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-                return !trimmedLabel.isEmpty
-                    && trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
-            }
-
-            if incomingHasWorkspaceSnapshot {
-                return snapshot
-            }
-
-            let nonPersonalHistoricalLabels = historicalCandidates.compactMap { candidate -> String? in
-                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedLabel.isEmpty,
-                      trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
-                else {
-                    return nil
-                }
-
-                return trimmedLabel
-            }
-            let activeHistoricalLabels = historicalCandidates.compactMap { candidate -> String? in
-                guard candidate.isCurrentSystemAccount == true else {
-                    return nil
-                }
-
-                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedLabel.isEmpty,
-                      trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
-                else {
-                    return nil
-                }
-
-                return trimmedLabel
-            }
-            let preservedWorkspaceLabel: String?
-
-            if Set(activeHistoricalLabels).count == 1 {
-                preservedWorkspaceLabel = activeHistoricalLabels.first
-            } else if Set(nonPersonalHistoricalLabels).count == 1 {
-                preservedWorkspaceLabel = nonPersonalHistoricalLabels.first
-            } else {
-                preservedWorkspaceLabel = nil
-            }
-
-            guard let preservedWorkspaceLabel else {
-                return snapshot
-            }
-
-            let preservedAccountID = buildAccountPrimaryKey(
-                email: snapshot.email,
-                workspaceId: snapshot.workspaceId,
-                workspaceLabel: preservedWorkspaceLabel
-            )
-
-            return AccountSnapshot(
-                accountId: preservedAccountID,
-                label: snapshot.label,
-                email: snapshot.email,
-                workspaceId: snapshot.workspaceId,
-                workspaceLabel: preservedWorkspaceLabel,
-                plan: snapshot.plan,
-                source: snapshot.source,
-                systemAuthProfileId: snapshot.systemAuthProfileId,
-                isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
-                lastSyncedAt: snapshot.lastSyncedAt,
-                weeklyWindow: snapshot.weeklyWindow,
-                rollingWindow: snapshot.rollingWindow
-            )
-        }
     }
 
     private func shouldDiscardSupersededSystemSnapshot(
