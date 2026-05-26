@@ -164,10 +164,6 @@ final class PulseCoordinator: ObservableObject {
             cookieHeader: nil
         )
 
-        if workspaceItems.isEmpty {
-            throw PulseError.workspaceListUnavailable
-        }
-
         var snapshots: [AccountSnapshot] = []
 
         for workspaceItem in workspaceItems {
@@ -215,7 +211,40 @@ final class PulseCoordinator: ObservableObject {
             )
         }
 
+        if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
+            snapshots.append(
+                try self.buildCurrentSystemSnapshot(
+                    currentUsage,
+                    identity: identity
+                )
+            )
+        }
+
         return SystemSnapshotRefresh(snapshots: snapshots)
+    }
+
+    private func buildCurrentSystemSnapshot(
+        _ currentUsage: [String: Any],
+        identity: SystemAuthIdentity
+    ) throws -> AccountSnapshot {
+        let workspaceID = currentUsage["account_id"] as? String ?? identity.accountId
+
+        return try self.normalizeUsage(
+            currentUsage,
+            accountID: workspaceID ?? identity.subject ?? UUID().uuidString,
+            label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
+            email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
+            workspaceID: workspaceID,
+            workspaceLabel: self.resolveWorkspaceName(
+                currentUsage,
+                workspaceItem: nil,
+                identity: identity
+            ),
+            plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
+            source: "live system auth",
+            systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
+            isCurrentSystemAccount: true
+        )
     }
 
     private func buildCookieSnapshot(for account: AccountConfig) async throws -> AccountSnapshot {
@@ -792,6 +821,23 @@ final class PulseCoordinator: ObservableObject {
                 candidate.source == "live system auth"
                     && normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
             }
+            let incomingHasWorkspaceSnapshot = incoming.contains { candidate in
+                guard candidate.accountId != snapshot.accountId,
+                      candidate.source == "live system auth",
+                      normalizedSystemAuthProfileID(candidate.systemAuthProfileId) == profileID
+                else {
+                    return false
+                }
+
+                let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                return !trimmedLabel.isEmpty
+                    && trimmedLabel.caseInsensitiveCompare("Personal") != .orderedSame
+            }
+
+            if incomingHasWorkspaceSnapshot {
+                return snapshot
+            }
+
             let nonPersonalHistoricalLabels = historicalCandidates.compactMap { candidate -> String? in
                 let trimmedLabel = candidate.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmedLabel.isEmpty,
