@@ -233,9 +233,10 @@ final class PulseCoordinator: ObservableObject {
             payload: currentUsage,
             fallback: ""
         )
-        let workspaceID = normalizedWorkspaceLabel(workspaceLabel, plan: plan) == "Personal"
-            ? nil
-            : currentUsage["account_id"] as? String ?? identity.accountId
+        let workspaceID = AccountIdentity.preferredStorageWorkspaceID(
+            workspaceId: currentUsage["account_id"] as? String,
+            fallbackAccountId: identity.accountId
+        )
 
         return try self.normalizeUsage(
             currentUsage,

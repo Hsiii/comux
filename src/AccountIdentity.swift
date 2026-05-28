@@ -56,6 +56,17 @@ enum AccountIdentity {
         return nil
     }
 
+    static func preferredStorageWorkspaceID(
+        workspaceId: String?,
+        fallbackAccountId: String?
+    ) -> String? {
+        if let workspaceId = trimmedWorkspaceID(workspaceId) {
+            return workspaceId
+        }
+
+        return trimmedWorkspaceID(fallbackAccountId)
+    }
+
     static func storageKey(
         email: String,
         workspaceId: String?,
