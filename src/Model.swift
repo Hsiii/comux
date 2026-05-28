@@ -96,7 +96,7 @@ struct WorkspaceItem: Decodable {
     let name: String?
 }
 
-enum PulseError: Error, LocalizedError {
+enum PulseError: Error, LocalizedError, Equatable {
     case invalidAuthFile
     case invalidSessionToken
     case invalidUsageResponse

@@ -16,6 +16,7 @@ let package = Package(
                 "Model.swift",
                 "AccountIdentity.swift",
                 "AccountSnapshotMerger.swift",
+                "UsagePayloadParser.swift",
                 "Path.swift",
                 "Persistence.swift",
                 "Store.swift",

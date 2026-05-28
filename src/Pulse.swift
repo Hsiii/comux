@@ -374,12 +374,11 @@ final class PulseCoordinator: ObservableObject {
             request.setValue(accountHeader, forHTTPHeaderField: "ChatGPT-Account-Id")
         }
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw PulseError.invalidUsageResponse
-        }
-
-        return payload
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return try UsagePayloadParser.parse(
+            data: data,
+            response: response
+        )
     }
 
     private func fetchWorkspaceItems(
