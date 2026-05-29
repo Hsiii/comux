@@ -203,6 +203,74 @@ final class AccountSnapshotMergerTests: XCTestCase {
         )
     }
 
+    func testStaleWorkspaceSeatLossPreservesCachedUsageWindows() {
+        let merger = AccountSnapshotMerger()
+        let existingSeatedWorkspace = self.makeSnapshot(
+            accountId: "orangesagocream@gmail.com::8ccae9fa-c4dc-4d0b-bfb6-8cf230d7e084",
+            email: "orangesagocream@gmail.com",
+            workspaceId: "8ccae9fa-c4dc-4d0b-bfb6-8cf230d7e084",
+            workspaceLabel: "Kiwi",
+            plan: "Codex Team",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "google-oauth2|111509752519153701574",
+            lastSyncedAt: "2026-05-28T08:00:00Z",
+            weeklyAvailable: true,
+            weeklyUsedMinutes: 7762,
+            weeklyLimitMinutes: 10080,
+            weeklyUsedPercentage: 77,
+            weeklyResetsAt: "2026-05-31T01:23:17Z",
+            rollingAvailable: true,
+            rollingUsedMinutes: 204,
+            rollingLimitMinutes: 300,
+            rollingUsedPercentage: 68,
+            rollingResetsAt: "2026-05-26T06:41:51Z"
+        )
+        let staleSeatLoss = self.makeSnapshot(
+            accountId: existingSeatedWorkspace.accountId,
+            email: existingSeatedWorkspace.email,
+            workspaceId: existingSeatedWorkspace.workspaceId,
+            workspaceLabel: existingSeatedWorkspace.workspaceLabel,
+            plan: "Codex Self_serve_business_usage_based",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: existingSeatedWorkspace.systemAuthProfileId,
+            lastSyncedAt: "2026-05-29T08:00:00Z",
+            weeklyAvailable: false,
+            weeklyUsedMinutes: 0,
+            weeklyLimitMinutes: 0,
+            weeklyUsedPercentage: 0,
+            weeklyResetsAt: "",
+            rollingAvailable: false,
+            rollingUsedMinutes: 0,
+            rollingLimitMinutes: 0,
+            rollingUsedPercentage: 0,
+            rollingResetsAt: ""
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [existingSeatedWorkspace]
+            ),
+            incoming: [staleSeatLoss],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.count, 1)
+        XCTAssertEqual(merged.accounts[0].accountId, existingSeatedWorkspace.accountId)
+        XCTAssertEqual(merged.accounts[0].lastSyncedAt, staleSeatLoss.lastSyncedAt)
+        XCTAssertEqual(merged.accounts[0].plan, existingSeatedWorkspace.plan)
+        XCTAssertEqual(merged.accounts[0].weeklyWindow.available, true)
+        XCTAssertEqual(merged.accounts[0].weeklyWindow.usedMinutes, 7762)
+        XCTAssertEqual(merged.accounts[0].weeklyWindow.limitMinutes, 10080)
+        XCTAssertEqual(merged.accounts[0].weeklyWindow.resetsAt, "2026-05-31T01:23:17Z")
+        XCTAssertEqual(merged.accounts[0].rollingWindow.available, true)
+        XCTAssertEqual(merged.accounts[0].rollingWindow.usedMinutes, 204)
+        XCTAssertEqual(merged.accounts[0].rollingWindow.limitMinutes, 300)
+        XCTAssertEqual(merged.accounts[0].rollingWindow.resetsAt, "2026-05-26T06:41:51Z")
+    }
+
     func testStablePersonalWorkspaceSupersedesStaleUnscopedPersonalSystemSeat() {
         let merger = AccountSnapshotMerger()
         let stalePersonal = self.makeSnapshot(
