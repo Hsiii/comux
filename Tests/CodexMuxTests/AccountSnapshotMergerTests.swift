@@ -137,6 +137,62 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == workspaceB.accountId }))
     }
 
+    func testSameEmailNoWorkspaceWorkspaceAndNoUsageWorkspaceSeatsCoexist() {
+        let merger = AccountSnapshotMerger()
+        let noWorkspace = self.makeSnapshot(
+            accountId: "person@example.com",
+            email: "person@example.com",
+            workspaceId: nil,
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1"
+        )
+        let workspace = self.makeSnapshot(
+            accountId: "person@example.com::workspace-a",
+            email: "person@example.com",
+            workspaceId: "workspace-a",
+            workspaceLabel: "Workspace A",
+            plan: "Codex Team",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "profile-1"
+        )
+        let noUsageWorkspace = self.makeSnapshot(
+            accountId: "person@example.com::workspace-b",
+            email: "person@example.com",
+            workspaceId: "workspace-b",
+            workspaceLabel: "Usage Based",
+            plan: "Codex Self_serve_business_usage_based",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1",
+            weeklyAvailable: false,
+            weeklyUsedMinutes: 0,
+            weeklyLimitMinutes: 0,
+            weeklyUsedPercentage: 0
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: []
+            ),
+            incoming: [noWorkspace, workspace, noUsageWorkspace],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.count, 3)
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == noWorkspace.accountId }))
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == workspace.accountId }))
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == noUsageWorkspace.accountId }))
+        XCTAssertEqual(
+            merged.accounts.first(where: { $0.accountId == noUsageWorkspace.accountId })?.weeklyWindow.limitMinutes,
+            0
+        )
+    }
+
     func testStablePersonalWorkspaceSupersedesStaleUnscopedPersonalSystemSeat() {
         let merger = AccountSnapshotMerger()
         let stalePersonal = self.makeSnapshot(
@@ -333,7 +389,10 @@ final class AccountSnapshotMergerTests: XCTestCase {
         isCurrentSystemAccount: Bool?,
         systemAuthProfileId: String? = nil,
         lastSyncedAt: String = "2026-05-28T00:00:00Z",
-        weeklyAvailable: Bool = true
+        weeklyAvailable: Bool = true,
+        weeklyUsedMinutes: Int = 10,
+        weeklyLimitMinutes: Int = 100,
+        weeklyUsedPercentage: Double = 10
     ) -> AccountSnapshot {
         AccountSnapshot(
             accountId: accountId,
@@ -349,9 +408,9 @@ final class AccountSnapshotMergerTests: XCTestCase {
             weeklyWindow: UsageWindow(
                 available: weeklyAvailable,
                 label: "Weekly window",
-                usedMinutes: 10,
-                limitMinutes: 100,
-                usedPercentage: 10,
+                usedMinutes: weeklyUsedMinutes,
+                limitMinutes: weeklyLimitMinutes,
+                usedPercentage: weeklyUsedPercentage,
                 resetsAt: "2026-05-29T00:00:00Z"
             ),
             rollingWindow: UsageWindow(
