@@ -4,12 +4,12 @@ import SwiftUI
 @MainActor
 final class ComuxLifecycleDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        ProcessInfo.processInfo.disableAutomaticTermination("comux menu bar app")
+        ProcessInfo.processInfo.disableAutomaticTermination("Comux menu bar app")
         NSApp.setActivationPolicy(.accessory)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        ProcessInfo.processInfo.enableAutomaticTermination("comux menu bar app")
+        ProcessInfo.processInfo.enableAutomaticTermination("Comux menu bar app")
     }
 }
 
@@ -37,12 +37,12 @@ struct ComuxApp: App {
             ?? NSApplication.shared.applicationIconImage
 
         guard let image else {
-            return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "comux") ?? NSImage()
+            return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "Comux") ?? NSImage()
         }
 
         image.size = NSSize(width: 16, height: 16)
         image.isTemplate = true
-        image.accessibilityDescription = "comux"
+        image.accessibilityDescription = "Comux"
         return image
     }
 }

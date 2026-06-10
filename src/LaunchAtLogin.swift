@@ -40,8 +40,8 @@ final class LaunchAtLoginStore: ObservableObject {
 
     private static func message(for enabled: Bool, error: Error) -> String {
         let fallback = enabled
-            ? "comux could not be added to Login Items. Install the app in /Applications and try again."
-            : "comux could not be removed from Login Items."
+            ? "Comux could not be added to Login Items. Install the app in /Applications and try again."
+            : "Comux could not be removed from Login Items."
 
         let details = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         if details.isEmpty || details == "The operation couldn’t be completed." {

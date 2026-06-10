@@ -6,7 +6,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    PRODUCT_NAME: comux
+    PRODUCT_NAME: Comux
     PRODUCT_BUNDLE_IDENTIFIER: dev.hsi.comux.app
     CODE_SIGN_STYLE: Automatic
 targets:
@@ -20,8 +20,8 @@ targets:
     settings:
       base:
         ENABLE_DEBUG_DYLIB: false
-        INFOPLIST_KEY_CFBundleDisplayName: comux
-        INFOPLIST_KEY_CFBundleName: comux
+        INFOPLIST_KEY_CFBundleDisplayName: Comux
+        INFOPLIST_KEY_CFBundleName: Comux
         INFOPLIST_KEY_CFBundleIconFile: comux
         INFOPLIST_KEY_NSHighResolutionCapable: true
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
