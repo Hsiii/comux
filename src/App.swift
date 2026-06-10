@@ -2,20 +2,20 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class CodexMuxLifecycleDelegate: NSObject, NSApplicationDelegate {
+final class ComuxLifecycleDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        ProcessInfo.processInfo.disableAutomaticTermination("CodexMux menu bar app")
+        ProcessInfo.processInfo.disableAutomaticTermination("comux menu bar app")
         NSApp.setActivationPolicy(.accessory)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        ProcessInfo.processInfo.enableAutomaticTermination("CodexMux menu bar app")
+        ProcessInfo.processInfo.enableAutomaticTermination("comux menu bar app")
     }
 }
 
 @main
-struct CodexMuxApp: App {
-    @NSApplicationDelegateAdaptor(CodexMuxLifecycleDelegate.self) private var lifecycleDelegate
+struct ComuxApp: App {
+    @NSApplicationDelegateAdaptor(ComuxLifecycleDelegate.self) private var lifecycleDelegate
     @StateObject private var coordinator = PulseCoordinator()
 
     var body: some Scene {
@@ -33,16 +33,16 @@ struct CodexMuxApp: App {
 
     private static var codexMenuBarIcon: NSImage {
         let image = AppResources.image(named: "icon", withExtension: "png", subdirectory: "assets")
-            ?? AppResources.image(named: "CodexMux", withExtension: "icns")
+            ?? AppResources.image(named: "comux", withExtension: "icns")
             ?? NSApplication.shared.applicationIconImage
 
         guard let image else {
-            return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
+            return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "comux") ?? NSImage()
         }
 
         image.size = NSSize(width: 16, height: 16)
         image.isTemplate = true
-        image.accessibilityDescription = "CodexMux"
+        image.accessibilityDescription = "comux"
         return image
     }
 }

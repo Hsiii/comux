@@ -292,11 +292,11 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func loadSystemIdentity() throws -> SystemAuthIdentity? {
-        guard FileManager.default.fileExists(atPath: CodexMuxPaths.codexAuth.path(percentEncoded: false)) else {
+        guard FileManager.default.fileExists(atPath: ComuxPaths.codexAuth.path(percentEncoded: false)) else {
             return nil
         }
 
-        let data = try Data(contentsOf: CodexMuxPaths.codexAuth)
+        let data = try Data(contentsOf: ComuxPaths.codexAuth)
         guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tokens = payload["tokens"] as? [String: Any],
               let accessToken = tokens["access_token"] as? String
@@ -712,7 +712,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func startAuthFileMonitor() {
-        let authDirectoryURL = CodexMuxPaths.codexAuth.deletingLastPathComponent()
+        let authDirectoryURL = ComuxPaths.codexAuth.deletingLastPathComponent()
         let directoryPath = authDirectoryURL.path(percentEncoded: false)
         let fileDescriptor = open(directoryPath, O_EVTONLY)
 
@@ -759,7 +759,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func currentAuthFileSignature() -> AuthFileSignature? {
-        let authPath = CodexMuxPaths.codexAuth.path(percentEncoded: false)
+        let authPath = ComuxPaths.codexAuth.path(percentEncoded: false)
 
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: authPath) else {
             return nil

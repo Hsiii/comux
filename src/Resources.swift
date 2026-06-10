@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 
 enum AppResources {
-    private static let bundleName = "CodexMux_CodexMux.bundle"
+    private static let bundleName = "comux_Comux.bundle"
 
     private static let moduleBundle: Bundle? = {
         let candidates: [URL?] = [

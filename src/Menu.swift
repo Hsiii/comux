@@ -306,7 +306,7 @@ private struct RemoveAccountSheet: View {
                 Text("Remove Account")
                     .font(.title3.weight(.semibold))
 
-                Text("Remove the saved account for \(account.email) from CodexMux?")
+                Text("Remove the saved account for \(account.email) from comux?")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -331,7 +331,7 @@ private struct RemoveAccountSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            Text("This only removes the saved account from CodexMux. It does not change the underlying ChatGPT account.")
+            Text("This only removes the saved account from comux. It does not change the underlying ChatGPT account.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

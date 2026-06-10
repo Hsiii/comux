@@ -32,10 +32,11 @@ struct StorageLogEntry: Codable {
 final class DurableStoreCoordinator: @unchecked Sendable {
     static let shared = DurableStoreCoordinator()
 
-    private let queue = DispatchQueue(label: "com.codexmux.storage", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.comux.storage", qos: .userInitiated)
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    private let legacyDefaultsKey = "codexmux.nicknames.v1"
+    private let legacyDefaultsKey = "comux.nicknames.v1"
+    private let renamedLegacyDefaultsKey = "codex" + "mux.nicknames.v1"
     private let olderLegacyDefaultsKey = "codexboard.nicknames.v1"
     private var database: OpaquePointer?
 
@@ -155,8 +156,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             return
         }
 
+        try self.copyRenamedDatabaseIfNeededLocked()
+
         try FileManager.default.createDirectory(
-            at: CodexMuxPaths.root,
+            at: ComuxPaths.root,
             withIntermediateDirectories: true
         )
 
@@ -164,7 +167,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         let flags = SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
 
         guard sqlite3_open_v2(
-            CodexMuxPaths.database.path(percentEncoded: false),
+            ComuxPaths.database.path(percentEncoded: false),
             &database,
             flags,
             nil
@@ -268,6 +271,21 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         )
     }
 
+    private func copyRenamedDatabaseIfNeededLocked() throws {
+        let fileManager = FileManager.default
+        guard !fileManager.fileExists(atPath: ComuxPaths.database.path(percentEncoded: false)),
+              fileManager.fileExists(atPath: ComuxPaths.oldDatabase.path(percentEncoded: false))
+        else {
+            return
+        }
+
+        try fileManager.createDirectory(
+            at: ComuxPaths.root,
+            withIntermediateDirectories: true
+        )
+        try fileManager.copyItem(at: ComuxPaths.oldDatabase, to: ComuxPaths.database)
+    }
+
     private func migrateLegacyStorageIfNeededLocked() throws {
         guard try self.metaValueLocked(for: "storage.engine") == nil else {
             return
@@ -335,7 +353,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     }
 
     private func loadLegacyCacheLocked() -> CachePayload {
-        guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
+        guard let data = try? self.dataFromRenamedStorage(
+            primary: ComuxPaths.cache,
+            renamed: ComuxPaths.oldCache
+        ),
               let payload = try? self.decoder.decode(CachePayload.self, from: data) else {
             return CachePayload(
                 meta: CacheMeta(source: "native-swift-cache"),
@@ -347,7 +368,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     }
 
     private func loadLegacyConfigLocked() -> PulseConfig {
-        guard let data = try? Data(contentsOf: CodexMuxPaths.config),
+        guard let data = try? self.dataFromRenamedStorage(
+            primary: ComuxPaths.config,
+            renamed: ComuxPaths.oldConfig
+        ),
               let config = try? self.decoder.decode(PulseConfig.self, from: data) else {
             return .default
         }
@@ -356,7 +380,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     }
 
     private func loadLegacyDisplayNamesLocked() -> [String: String] {
-        if let data = try? Data(contentsOf: CodexMuxPaths.legacyDisplayNames),
+        if let data = try? self.dataFromRenamedStorage(
+            primary: ComuxPaths.legacyDisplayNames,
+            renamed: ComuxPaths.oldLegacyDisplayNames
+        ),
            let payload = try? self.decoder.decode(DisplayNamePayload.self, from: data) {
             return payload.displayNames
         }
@@ -366,7 +393,20 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             return legacyDisplayNames
         }
 
+        let renamedLegacyDisplayNames = UserDefaults.standard.dictionary(forKey: self.renamedLegacyDefaultsKey) as? [String: String] ?? [:]
+        if !renamedLegacyDisplayNames.isEmpty {
+            return renamedLegacyDisplayNames
+        }
+
         return UserDefaults.standard.dictionary(forKey: self.olderLegacyDefaultsKey) as? [String: String] ?? [:]
+    }
+
+    private func dataFromRenamedStorage(primary: URL, renamed: URL) throws -> Data {
+        if let data = try? Data(contentsOf: primary) {
+            return data
+        }
+
+        return try Data(contentsOf: renamed)
     }
 
     private func inTransactionLocked(

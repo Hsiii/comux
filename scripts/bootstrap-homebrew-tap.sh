@@ -3,8 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="CodexMux"
-CASK_TOKEN="codexmux"
+APP_NAME="comux"
+CASK_TOKEN="comux"
 
 VERSION=""
 BUILD_NUMBER=""
@@ -20,14 +20,14 @@ Usage: scripts/bootstrap-homebrew-tap.sh --version <version> --source-repo <owne
 Options:
   --build-number <value>  CFBundleVersion value. Defaults to the version string.
   --source-repo <owner/name>
-                          GitHub repository that hosts CodexMux releases.
+                          GitHub repository that hosts comux releases.
   --tap-repo <owner/name> GitHub repository name for the tap. Defaults to <owner>/homebrew-tap.
   --output <path>         Directory to create or update. Defaults to ../<tap repo name>.
   --homepage <url>        Homepage for the generated cask. Defaults to the source repo URL.
 
 This creates a standalone Homebrew tap scaffold with:
   README.md
-  Casks/codexmux.rb
+  Casks/comux.rb
 EOF
 }
 

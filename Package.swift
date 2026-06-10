@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexMux",
+    name: "comux",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "CodexMux", targets: ["CodexMux"])
+        .executable(name: "comux", targets: ["Comux"])
     ],
     targets: [
         .executableTarget(
-            name: "CodexMux",
+            name: "Comux",
             path: "src",
             sources: [
                 "App.swift",
@@ -37,8 +37,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "CodexMuxTests",
-            dependencies: ["CodexMux"]
+            name: "ComuxTests",
+            dependencies: ["Comux"]
         )
     ]
 )

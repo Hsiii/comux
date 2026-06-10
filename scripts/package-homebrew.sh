@@ -4,9 +4,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/.build/dist"
-APP_NAME="CodexMux"
+APP_NAME="comux"
 APP_FILENAME="${APP_NAME}.app"
-CASK_TOKEN="codexmux"
+CASK_TOKEN="comux"
 
 VERSION=""
 BUILD_NUMBER=""
@@ -23,7 +23,7 @@ Options:
   --homepage <url>        Homepage for the generated cask. Defaults to the repo URL.
 
 Environment fallbacks:
-  GITHUB_REPOSITORY, GITHUB_SERVER_URL, CODEXMUX_VERSION, CODEXMUX_BUILD_NUMBER
+  GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER
 EOF
 }
 
@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$VERSION" ]]; then
-    VERSION="${CODEXMUX_VERSION:-}"
+    VERSION="${COMUX_VERSION:-}"
 fi
 
 if [[ -z "$VERSION" ]]; then
@@ -67,7 +67,7 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 if [[ -z "$BUILD_NUMBER" ]]; then
-    BUILD_NUMBER="${CODEXMUX_BUILD_NUMBER:-$VERSION}"
+    BUILD_NUMBER="${COMUX_BUILD_NUMBER:-$VERSION}"
 fi
 
 if [[ -z "$REPOSITORY" ]]; then
@@ -99,8 +99,8 @@ download_url="${server_url}/${REPOSITORY}/releases/download/v${VERSION}/${archiv
 
 mkdir -p "$DIST_DIR"
 
-CODEXMUX_VERSION="$VERSION" \
-CODEXMUX_BUILD_NUMBER="$BUILD_NUMBER" \
+COMUX_VERSION="$VERSION" \
+COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
 "$ROOT_DIR/scripts/build-app.sh" >/dev/null
 
 rm -f "$archive_path"
@@ -122,7 +122,7 @@ cask "${CASK_TOKEN}" do
   app "${APP_FILENAME}"
 
   zap trash: [
-    "~/.codexmux",
+    "~/.comux",
   ]
 end
 EOF
